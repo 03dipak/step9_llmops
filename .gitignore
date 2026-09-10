@@ -1,0 +1,26 @@
+# ─── Secrets / local env — NEVER commit ───
+.env
+.env.*
+!.env.example
+
+# ─── Python-generated ───
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# ─── Virtual environments ───
+.venv
+
+# ─── Tool caches ───
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# ─── Eval / data artifacts (local) ───
+chroma_db/
+*.npz
+eval/results/
