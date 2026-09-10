@@ -23,6 +23,7 @@ module review.
 | D13 | **`doc/notes/` = the learner's workspace**, indexed in `doc/notes/README.md`: files land when their module runs; absent-until-produced is by design (not a broken link); committed as review evidence; markdown-only, no keys | IN | `doc/notes/README.md`; module references in `doc/task/00..07` |
 | D14 | **Corpus = self-authored step-series docs only** (S1–S3: step1–8 README/doc bundles · S4: step4 `QA_DEEP_DIVES.md` · S5: step4/step9 README+AGENTS). External course material stays **out of the public repo** — zero provenance risk, fully interview-showable, no overlap between sources | IN | `doc/task/01_data_testset.md` (Source ids) |
 | D15 | **Multi-source golden ids use `MS-Q\d+`** with union convention (`source: "S1+S3"`, `path` joined with ` + `, `ideal_context` = one contiguous excerpt per row; `must_contain` validated across the union). T-01-4 regex amended to accept `MS-Q\d+` | IN | `doc/design/01_lld_tests.md` (T-01-4); `doc/notes/01_corpus_plan.md` rule 5 |
+| D16 | **Golden rows are authored by the `data`/`tester` roles** — `eval/goldens/*.json` is eval data, not application code; D2's no-go zones (`src/`, `tests/`, `jupyter_notebook/`, CI) do not cover it. Learner lane: NB-01 anchor-check script + all application code + interview defense of the golden design (task 01 Q1/Q2). design/01:5 amended | IN | `doc/design/01_lld_tests.md` (header); `AGENTS.md` role map (`tester`, `data`) |
 
 ## Deferral register (copied from step4 `GAP_REGISTER.md`, all OUT for step9)
 

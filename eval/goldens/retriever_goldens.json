@@ -1,5 +1,19 @@
 [
   {
+    "id": "MS-Q001",
+    "category": "multi-source",
+    "query": "Why can registry rollback be a data operation instead of a code redeploy?",
+    "ideal_answer": "Because the registry separates mechanism from state: the PromptRegistry class is git-versioned code while the state lives in registry.json. Production answers come from registry.get(prompt_id, approved_only=True), so rolling back means flipping status in registry.json — no code redeploy, no binary rollback. This is stated in both the shared-registry rules (step 1) and the step-7 deployment note.",
+    "ideal_context": "2. **Code ≠ Data** — the *mechanism* (the `PromptRegistry` class, git-versioned) is separate from the *state* (`registry.json`). `promote()` / `rollback()` only flip data fields, so a rollback is a **data operation, not a code redeploy**.",
+    "must_contain": [
+      "data operation, not a code redeploy",
+      "flipping status in",
+      "No code redeploy, no binary rollback."
+    ],
+    "source": "S1+S3",
+    "path": "data/docs/s1_early_steps_bundle.md + data/docs/s3_lifecycle_bundle.md"
+  },
+  {
     "id": "S1-Q001",
     "category": "basic",
     "query": "What chunking strategy does step 1 use, and what are the chunk size and overlap?",
@@ -52,6 +66,384 @@
     "must_contain": [
       "not in docs",
       "I don't have enough information to answer this question."
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q005",
+    "category": "basic",
+    "query": "How does step 1 store embeddings, and why that implementation?",
+    "ideal_answer": "Step 1 stores chunks and embeddings in an in-memory numpy array indexed for cosine similarity search. The store is pure numpy — no Qdrant, no Chroma, no external DB — chosen so the mechanics stay learnable, with Qdrant/Pinecone noted as later production options.",
+    "ideal_context": "**Implementation:** Pure numpy — no Qdrant, no Chroma, no external DB.",
+    "must_contain": [
+      "Pure numpy",
+      "no Qdrant, no Chroma"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q006",
+    "category": "basic",
+    "query": "What is the retrieval process in step 1's retriever?",
+    "ideal_answer": "The retriever embeds the query with the same model used for chunks, computes cosine similarity against all stored chunks, sorts by similarity score descending, and returns the top-k chunks with scores.",
+    "ideal_context": "1. Embed the query using the same model as chunks\n2. Compute cosine similarity against all stored chunks\n3. Sort by similarity score (descending)\n4. Return top-k chunks with scores",
+    "must_contain": [
+      "Embed the query using the same model as chunks",
+      "Sort by similarity score (descending)",
+      "top-k chunks"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q007",
+    "category": "cite",
+    "query": "What typical cosine-similarity threshold does step 1 mention for relevance?",
+    "ideal_answer": "Step 1 gives the cosine similarity range -1 (opposite) to 1 (identical) and notes a typical relevance threshold of greater than 0.7.",
+    "ideal_context": "Typical threshold: > 0.7 = relevant",
+    "must_contain": [
+      "> 0.7 = relevant"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q008",
+    "category": "basic",
+    "query": "What generation parameters does step 1's generator use?",
+    "ideal_answer": "The generator uses max_tokens 1024 to leave room for context in the prompt, temperature 0.1 for low-creativity factual answers, and top_p 0.9 to focus on the most probable tokens.",
+    "ideal_context": "| `max_tokens` | 1024 | Leave room for context in prompt |\n| `temperature` | 0.1 | Low creativity for factual answers |\n| `top_p` | 0.9 | Focus on most probable tokens |",
+    "must_contain": [
+      "1024",
+      "0.1",
+      "0.9"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q009",
+    "category": "cite",
+    "query": "How does step 1's generator prompt prevent hallucination?",
+    "ideal_answer": "The system prompt tells the model to answer based ONLY on the provided context, to say it does not have enough information when the context lacks the answer, and to cite its sources using [1], [2] corresponding to the context chunks.",
+    "ideal_context": "You are a helpful assistant. Answer the question based ONLY on the\nprovided context. If the context doesn't contain the answer, say\n\"I don't have enough information to answer this question.\"\n\nCite your sources using [1], [2], etc. corresponding to the\ncontext chunks provided.",
+    "must_contain": [
+      "based ONLY on the",
+      "I don't have enough information to answer this question.",
+      "Cite your sources using [1], [2]"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q010",
+    "category": "basic",
+    "query": "What does step 1's Streamlit app offer in its interface?",
+    "ideal_answer": "The UI provides a chat interface with message history, a sidebar with chunk_size and top_k sliders, source citations with expandable details, index stats, and a clear-chat button.",
+    "ideal_context": "**Features:**\n- Chat interface with message history\n- Sidebar: chunk_size, top_k sliders\n- Source citations with expandable details\n- Index stats (total chunks, files)\n- Clear chat button",
+    "must_contain": [
+      "chunk_size, top_k sliders",
+      "Source citations with expandable details",
+      "Clear chat button"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q011",
+    "category": "cite",
+    "query": "Which LLM does step 1 use and at what free-tier rate?",
+    "ideal_answer": "Step 1 uses Groq's llama-3.3-70b-versatile — free at 30 RPM with 200-350 tokens/second at 70B quality.",
+    "ideal_context": "| **LLM** | Groq `llama-3.3-70b-versatile` | Free (30 RPM) | 200-350 tok/s, 70B quality |",
+    "must_contain": [
+      "llama-3.3-70b-versatile",
+      "30 RPM"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q012",
+    "category": "basic",
+    "query": "How do chunk sizes at the extremes affect retrieval quality?",
+    "ideal_answer": "Chunks too small (100 tokens) return fragments and leave the LLM lacking context; chunks too large (2000 tokens) pack multiple topics and dilute relevance; the sweet spot is 500 tokens — one concept per chunk with enough context for an answer.",
+    "ideal_context": "- **Too small (100 tokens):** Retrieval returns fragments, LLM lacks context\n- **Too large (2000 tokens):** Multiple topics in one chunk, dilutes relevance\n- **Sweet spot (500 tokens):** One concept per chunk, enough context for answer",
+    "must_contain": [
+      "Too small (100 tokens)",
+      "Too large (2000 tokens)",
+      "Sweet spot (500 tokens)"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q013",
+    "category": "cite",
+    "query": "Why can queries and documents be embedded with the same model?",
+    "ideal_answer": "The key insight is that queries and documents use the same embedding model: the model learns that semantically similar texts have similar vectors even when they use different words.",
+    "ideal_context": "**Key insight:** Queries and documents use the same embedding model. The model learns that semantically similar texts have similar vectors, even if they use different words.",
+    "must_contain": [
+      "Queries and documents use the same embedding model"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q014",
+    "category": "basic",
+    "query": "What happens in the ask() flow of step 1's pipeline?",
+    "ideal_answer": "ask(question, top_k=3) embeds the question, retrieves the top-k chunks, generates an answer with that context, and returns the answer plus citations.",
+    "ideal_context": "ask(question, top_k=3)\n    → embed question\n    → retrieve top-k chunks\n    → generate answer with context\n    → return answer + citations",
+    "must_contain": [
+      "ask(question, top_k=3)",
+      "retrieve top-k chunks",
+      "return answer + citations"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q015",
+    "category": "cite",
+    "query": "How does the shared prompt registry treat the steps that follow step 1?",
+    "ideal_answer": "The PromptRegistry is not a Step 1 feature but a cross-cutting component that now belongs to every step: built once in step 1, then imported (never re-copied) by steps 2-7.",
+    "ideal_context": "> The `PromptRegistry` is not a Step 1 feature — it is a **cross-cutting component that now belongs to every step**. You build it **once** here, then import (never re-copy) it in Steps 2–7.",
+    "must_contain": [
+      "cross-cutting component that now belongs to every step",
+      "import (never re-copy)"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q016",
+    "category": "basic",
+    "query": "What are the three parts of a prompt version record in the registry?",
+    "ideal_answer": "Every prompt version record splits into three concerns: CONTENT (the actual template string plus variables), POLICY (model, temperature, tools, budget, safety), and EVIDENCE (trace, eval scores, sources, feedback).",
+    "ideal_context": "│  CONTENT  — The actual template string + variables      │\n│  POLICY   — Model, temperature, tools, budget, safety   │\n│  EVIDENCE — Trace, eval scores, sources, feedback       │",
+    "must_contain": [
+      "CONTENT",
+      "POLICY",
+      "EVIDENCE",
+      "template string + variables"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q017",
+    "category": "cite",
+    "query": "What rules govern prompt status changes in the registry?",
+    "ideal_answer": "Status moves forward only through DRAFT, TESTING, APPROVED, RETIRED; a retired prompt cannot be promoted (terminal state); templates are immutable — changing one creates a new version, never overwrites; every status change is recorded in STATUS_HISTORY.",
+    "ideal_context": "- `DRAFT → TESTING → APPROVED → RETIRED` (forward only)\n- Cannot promote from RETIRED (terminal state)\n- **Immutable:** changing a template creates a new version, never overwrites\n- Every status change recorded in `STATUS_HISTORY`",
+    "must_contain": [
+      "forward only",
+      "Cannot promote from RETIRED",
+      "STATUS_HISTORY"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q018",
+    "category": "degrade",
+    "query": "How does step 2's DeepEval judge handle the Groq free-tier rate limit?",
+    "ideal_answer": "The judge uses openai/gpt-oss-120b — the only freely-accessible model verified on that Groq account. The free tier is TPM-limited (~8000 tokens/min), so judge calls are serialized through a shared async semaphore (JUDGE_MAX_CONCURRENT, default 1) and 429s are retried up to 10 times, sleeping the exact retry-after seconds parsed from the error message.",
+    "ideal_context": "**Judge: Groq (free tier).** The suite uses `openai/gpt-oss-120b` — the only freely-accessible model verified on this Groq account. The free tier is TPM-limited (~8000 tokens/min), so judge calls are serialized through a shared async semaphore (`JUDGE_MAX_CONCURRENT`, default `1`) and 429s are retried (up to 10×) sleeping the exact retry-after seconds parsed from the error message.",
+    "must_contain": [
+      "8000 tokens/min",
+      "JUDGE_MAX_CONCURRENT",
+      "429s are retried"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q019",
+    "category": "basic",
+    "query": "How is context recall computed in step 2's evaluation?",
+    "ideal_answer": "Context recall measures what fraction of the gold answer's key points are covered by the retrieved chunks: for a gold answer mentioning chunking, embeddings, and vector DB with retrieved chunks covering only chunking and embeddings, the example scores 2/3 = 0.67.",
+    "ideal_context": "```\nGold answer mentions: [chunking, embeddings, vector DB]\nRetrieved chunks cover: [chunking, embeddings]",
+    "must_contain": [
+      "Context Recall = 2/3 = 0.67"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q020",
+    "category": "basic",
+    "query": "How is context precision scored in step 2's evaluation?",
+    "ideal_answer": "Context precision asks what fraction of the retrieved chunks are actually relevant to the question: with three retrieved chunks — two relevant (scores 0.89, 0.82) and one irrelevant (0.45) — the example scores 2/3 = 0.67.",
+    "ideal_context": "Retrieved 3 chunks:\n  [1] Relevant (score: 0.89)\n  [2] Relevant (score: 0.82)\n  [3] Irrelevant (score: 0.45)\n\nContext Precision = 2/3 = 0.67",
+    "must_contain": [
+      "Context Precision = 2/3",
+      "Relevant (score: 0.89)",
+      "Irrelevant (score: 0.45)"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q021",
+    "category": "cite",
+    "query": "How does faithfulness score an answer with an unsupported claim?",
+    "ideal_answer": "Faithfulness checks whether every claim in the generated answer is supported by the retrieved context: a fully supported answer scores 1.0; an answer adding an unmentioned fact (Python's creation year) scores 0.5 with one claim unsupported.",
+    "ideal_context": "```\nAnswer: \"Python is dynamically typed and supports OOP.\"\nContext mentions: \"dynamically typed\" ✓, \"object-oriented\" ✓\nFaithfulness = 1.0 (all claims supported)\n\nAnswer: \"Python was created in 1991 by Guido van Rossum.\"\nContext doesn't mention creation date",
+    "must_contain": [
+      "Faithfulness = 1.0 (all claims supported)",
+      "Faithfulness = 0.5 (one claim unsupported)"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q022",
+    "category": "basic",
+    "query": "How does step 2 measure answer relevance?",
+    "ideal_answer": "Answer relevance checks whether the generated answer actually addresses the question by asking the LLM to regenerate the question from the answer and computing the cosine similarity between the original and regenerated question embeddings.",
+    "ideal_context": "def answer_relevance(question: str, answer: str) -> float:\n    # Ask LLM to regenerate the question from the answer\n    regenerated = llm.generate(f\"Generate a question that this answer addresses: {answer}\")\n    # Compute similarity between original and regenerated question\n    original_emb = embed(question)\n    regenerated_emb = embed(regenerated)\n    return cosine_similarity(original_emb, regenerated_emb)",
+    "must_contain": [
+      "Ask LLM to regenerate the question from the answer",
+      "cosine_similarity"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q023",
+    "category": "basic",
+    "query": "Which metric maps to which retrieval failure in step 2's symptom table?",
+    "ideal_answer": "The failure-mode table maps: a wrong answer to low faithfulness (LLM hallucinated — strengthen the system prompt), an irrelevant answer to low answer relevance (bad retrieval — improve chunking/embeddings), right answer with wrong chunks to low context precision (add metadata filters), and missing info in context to low context recall (chunks too small — increase chunk_size).",
+    "ideal_context": "| Answer is wrong | Low faithfulness | LLM hallucinated | Strengthen system prompt |\n| Answer is irrelevant | Low answer_relevance | Bad retrieval | Improve chunking/embeddings |\n| Right answer, wrong chunks | Low context_precision | Similar but wrong chunks | Add metadata filters |\n| Missing info in context | Low context_recall | Chunks too small | Increase chunk_size |",
+    "must_contain": [
+      "Low faithfulness",
+      "Improve chunking/embeddings",
+      "Add metadata filters",
+      "Increase chunk_size"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q024",
+    "category": "cite",
+    "query": "What does the LangSmith dashboard show for a traced pipeline?",
+    "ideal_answer": "The LangSmith dashboard lists a timeline view of each pipeline execution, input/output for each step, latency breakdown, token usage, and error traces.",
+    "ideal_context": "- Timeline view of each pipeline execution\n- Input/output for each step\n- Latency breakdown\n- Token usage\n- Error traces",
+    "must_contain": [
+      "Timeline view of each pipeline execution",
+      "Latency breakdown",
+      "Error traces"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q025",
+    "category": "basic",
+    "query": "What fields does each golden.jsonl entry carry in step 2?",
+    "ideal_answer": "Each golden entry is one JSON object per line with four fields: question (the input question), answer (gold standard answer), source (which document contains the answer), and difficulty (easy/medium/hard for stratified eval).",
+    "ideal_context": "| `question` | The input question |\n| `answer` | Gold standard answer |\n| `source` | Which document contains the answer |\n| `difficulty` | easy/medium/hard (for stratified eval) |",
+    "must_contain": [
+      "Gold standard answer",
+      "easy/medium/hard"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q026",
+    "category": "basic",
+    "query": "What size and difficulty mix does step 2 target for its golden set?",
+    "ideal_answer": "Step 2 targets 20-30 Q&A pairs: 10 easy (direct fact lookup), 10 medium (requires understanding), and 5-10 hard (multi-hop reasoning, cross-document).",
+    "ideal_context": "**Target:** 20-30 pairs covering:\n- 10 easy (direct fact lookup)\n- 10 medium (requires understanding)\n- 5-10 hard (multi-hop reasoning, cross-document)",
+    "must_contain": [
+      "20-30 pairs",
+      "10 easy",
+      "10 medium",
+      "5-10 hard"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q027",
+    "category": "cite",
+    "query": "How does compare_versions() order prompt versions?",
+    "ideal_answer": "compare_versions compares all versions of a prompt by eval scores and returns them sorted by faithfulness, best first, showing the Content (template diff), Policy (model/temp diff), and Evidence (scores) for each.",
+    "ideal_context": "def compare_versions(self, prompt_id: str) -> list[dict]:\n    \"\"\"Compare all versions of a prompt by eval scores.\n\n    Returns sorted by faithfulness (best first).\n    Shows Content (template diff), Policy (model/temp diff), Evidence (scores).",
+    "must_contain": [
+      "sorted by faithfulness (best first)"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q028",
+    "category": "basic",
+    "query": "How does step 2 persist chat conversations without LangSmith?",
+    "ideal_answer": "Every user/assistant exchange is appended to data/chat_logs/chat_log_<YYYY_MM_DD>.jsonl as JSONL objects with timestamp, user_message, agent_message, prompt_key, config, and num_sources — a durable local log that does not depend on LangSmith and is gitignored.",
+    "ideal_context": "- Every user/assistant exchange is appended to `data/chat_logs/chat_log_<YYYY_MM_DD>.jsonl` (JSONL objects: `{timestamp, user_message, agent_message, prompt_key, config, num_sources}`) — a durable, local conversation log that does **not** depend on LangSmith. Gitignored (`data/chat_logs/*.jsonl`).",
+    "must_contain": [
+      "does **not** depend on LangSmith",
+      "data/chat_logs/*.jsonl"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q029",
+    "category": "abstain",
+    "query": "What should the generator do when the retrieved context lacks the answer?",
+    "ideal_answer": "Step 1's generation-grounding guidance is that refusal when insufficient prevents wrong answers — the prompt instructs the model to answer based only on context and to say it does not have enough information to answer the question when the context lacks it.",
+    "ideal_context": "- **\"Answer from context only\"** reduces hallucination\n- **Refusal when insufficient** prevents wrong answers\n- **Citations [1][2]** trace answer to source chunks",
+    "must_contain": [
+      "Refusal when insufficient",
+      "prevents wrong answers",
+      "I don't have enough information to answer this question."
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q030",
+    "category": "misroute",
+    "query": "Which Groq model does the step-2 DeepEval judge use, and how is it rate-limited?",
+    "ideal_answer": "Step 2's own DeepEval suite uses openai/gpt-oss-120b — the only freely-accessible model verified on that Groq account — with judge calls serialized through JUDGE_MAX_CONCURRENT and 429s retried up to 10 times. This answer comes from the step-2 suite (S1); a router keying on 'DeepEval' or 'judge' could wrongly land this in step 4's eval plane (S4/S5).",
+    "ideal_context": "**Judge: Groq (free tier).** The suite uses `openai/gpt-oss-120b` — the only freely-accessible model verified on this Groq account. The free tier is TPM-limited (~8000 tokens/min), so judge calls are serialized through a shared async semaphore (`JUDGE_MAX_CONCURRENT`, default `1`) and 429s are retried (up to 10×) sleeping the exact retry-after seconds parsed from the error message.",
+    "must_contain": [
+      "openai/gpt-oss-120b",
+      "only freely-accessible model verified"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q031",
+    "category": "conflict",
+    "query": "What eval scores does the RAG_ANSWER V1 prompt record?",
+    "ideal_answer": "The corpus records two different sets of scores for the V1 RAG_ANSWER prompt: the STATUS_HISTORY example shows 'Eval scores: recall=0.72, faithfulness=0.88', while the step-2 eval-linked record shows recall: 0.65, faithfulness: 0.85 with eval_run_id eval_20260825_120000. Both passages exist in the bundle — an answer must surface both and flag the inconsistency rather than pick one.",
+    "ideal_context": "        \"reason\": \"Eval scores: recall=0.72, faithfulness=0.88\",",
+    "must_contain": [
+      "recall=0.72, faithfulness=0.88",
+      "recall: 0.65"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q032",
+    "category": "basic",
+    "query": "What retrieval failure modes does step 1 call out?",
+    "ideal_answer": "Step 1 lists three retrieval failure modes: no relevant chunk in the top-k (question too specific for the document set), multiple similar chunks (redundant information wastes context budget), and low similarity scores (all chunks somewhat relevant, none great).",
+    "ideal_context": "- **No relevant chunk in top-k:** Question too specific for document set\n- **Multiple similar chunks:** Redundant information wastes context budget\n- **Low similarity scores:** All chunks are somewhat relevant, none are great",
+    "must_contain": [
+      "No relevant chunk in top-k",
+      "Multiple similar chunks",
+      "Low similarity scores"
     ],
     "source": "S1",
     "path": "data/docs/s1_early_steps_bundle.md"
@@ -193,19 +585,5 @@
     ],
     "source": "S5",
     "path": "data/docs/s5_docs_bundle.md"
-  },
-  {
-    "id": "MS-Q001",
-    "category": "multi-source",
-    "query": "Why can registry rollback be a data operation instead of a code redeploy?",
-    "ideal_answer": "Because the registry separates mechanism from state: the PromptRegistry class is git-versioned code while the state lives in registry.json. Production answers come from registry.get(prompt_id, approved_only=True), so rolling back means flipping status in registry.json — no code redeploy, no binary rollback. This is stated in both the shared-registry rules (step 1) and the step-7 deployment note.",
-    "ideal_context": "2. **Code ≠ Data** — the *mechanism* (the `PromptRegistry` class, git-versioned) is separate from the *state* (`registry.json`). `promote()` / `rollback()` only flip data fields, so a rollback is a **data operation, not a code redeploy**.",
-    "must_contain": [
-      "data operation, not a code redeploy",
-      "flipping status in",
-      "No code redeploy, no binary rollback."
-    ],
-    "source": "S1+S3",
-    "path": "data/docs/s1_early_steps_bundle.md + data/docs/s3_lifecycle_bundle.md"
   }
 ]

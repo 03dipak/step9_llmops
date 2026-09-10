@@ -69,10 +69,18 @@ The anchor checker validates `must_contain` against **every** bundle in `path`.
 ## Progress
 
 - **Seeded (2026-09-10): 15 rows** in `eval/goldens/retriever_goldens.json` —
-  pattern-proof set across all sources and all 7 categories; authored by mentor, to be
-  extended to the 135-row budget by the learner in source batches (S1 → S2 → S3 → S4 → S5).
-  **Compliance status of the seed:** T-01-2/3/5/7 PASS; T-01-4 needs the MS-id decision
-  (rule 5); T-01-1 counts (15 vs 120–160) and T-01-6 edge minimums (1 vs ≥5 each) are
-  **completion targets for the learner batches — the seed is knowingly non-final.**
+  pattern-proof set across all sources and all 7 categories. **Authoring lane: the
+  `data`/`tester` roles (D16 — eval data, not application code); the learner authors the
+  NB-01 anchor-check script.** Extension: source batches (S1 → S2 → S3 → S4 → S5) toward
+  the 135-row budget.
+- **S1 batch done (2026-09-10): 28 rows appended → S1 at its full 32-row budget
+  (`S1-Q001..Q032`); file now 43 rows**, every row machine-verified: anchors extracted
+  with per-row line-marker + byte-contiguity asserts; full T-01-2/3/4/5/7 suite PASS
+  (schema exact, must_contain union-grounded, ideal_context contiguous byte-exact,
+  ids `S[1-5]-Q\d+|MS-Q\d+` unique, source/path truthful, no secret patterns).
+  **Watch items for S2–S5:** `basic` share is 47% (tester cap ~30% at file level —
+  S2–S5 must skew cite/multi-source/edge) and edge counts are 2 each vs ≥5 (T-01-6).
+- T-01-1 counts (43 vs 120–160) remain a completion target; seed/batch stages are
+  knowingly non-final.
 - Next: `eval/goldens/query_processing_goldens.json` (60–75, misroute negatives,
   task 01:70) and `eval/goldens/correctness_goldens.json` (100–120, task 01:71).
