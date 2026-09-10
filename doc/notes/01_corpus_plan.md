@@ -80,6 +80,13 @@ The anchor checker validates `must_contain` against **every** bundle in `path`.
   ids `S[1-5]-Q\d+|MS-Q\d+` unique, source/path truthful, no secret patterns).
   **Watch items for S2–S5:** `basic` share is 47% (tester cap ~30% at file level —
   S2–S5 must skew cite/multi-source/edge) and edge counts are 2 each vs ≥5 (T-01-6).
+- **S2 batch done (2026-09-10): 23 rows (`S2-Q003..Q025`) + `MS-Q002` (embedder
+  conflict family the tester flagged: step 2 bge-base-en-v1.5 vs step 3 qwen3-embed
+  1024-dim, both claiming 'the Step 2 pipeline') → file now 67 rows.** S1(32/32) and
+  S2(25/25) at full budget. Full T-01 suite PASS again. File state: basic 23 (34%),
+  cite 28, misroute **5 (target met)**, abstain 4, conflict 3, degrade 3 — remaining
+  S3/S4/S5 batches must lift conflict ≥5, abstain ≥5, degrade ≥5 and pull basic below
+  ~30%.
 - T-01-1 counts (43 vs 120–160) remain a completion target; seed/batch stages are
   knowingly non-final.
 - Next: `eval/goldens/query_processing_goldens.json` (60–75, misroute negatives,

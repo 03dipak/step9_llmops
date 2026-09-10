@@ -14,6 +14,20 @@
     "path": "data/docs/s1_early_steps_bundle.md + data/docs/s3_lifecycle_bundle.md"
   },
   {
+    "id": "MS-Q002",
+    "category": "conflict",
+    "query": "Which embedding model does the shared pipeline actually use — bge-base-en-v1.5 or qwen3-embed?",
+    "ideal_answer": "The corpus records two different embedders. Step 2's own README lists the embedder as BAAI/bge-base-en-v1.5 via fastembed, local ONNX, no API needed. Step 3's rebuild, however, records 'Same embedding as Step 2 (qwen3-embed, 1024-dim)' and explicitly disclaims HuggingFaceEmbeddings/bge. Both claims exist in the corpus and both call the other 'the Step 2 pipeline' — a faithful answer must surface the discrepancy rather than pick one side.",
+    "ideal_context": "**Model:** `BAAI/bge-base-en-v1.5` via fastembed (local ONNX, no API needed).",
+    "must_contain": [
+      "BAAI/bge-base-en-v1.5",
+      "qwen3-embed, 1024-dim",
+      "not `HuggingFaceEmbeddings`/bge"
+    ],
+    "source": "S1+S2",
+    "path": "data/docs/s1_early_steps_bundle.md + data/docs/s2_frameworks_bundle.md"
+  },
+  {
     "id": "S1-Q001",
     "category": "basic",
     "query": "What chunking strategy does step 1 use, and what are the chunk size and overlap?",
@@ -472,6 +486,304 @@
       "handoffs",
       "pass work to each other",
       "researcher"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q003",
+    "category": "cite",
+    "query": "Why was the framework-vs-handwritten decision set up as a measured answer?",
+    "ideal_answer": "Step 3 frames choosing a framework over writing it by hand as a business decision, not a gut call — so the step produces a measured answer covering code volume, debugging cost, flexibility, and whether they help or hurt eval scores.",
+    "ideal_context": "**The problem:** we're deciding *when to use a framework versus writing it by hand*. That's a\nbusiness decision, not a gut call — so this step produces a **measured answer** (code volume,\ndebugging cost, flexibility, and whether they help or hurt eval scores).",
+    "must_contain": [
+      "business decision, not a gut call"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q004",
+    "category": "cite",
+    "query": "What is the step-3 pipeline shape?",
+    "ideal_answer": "Step 3's deliverable pipeline is Split → Embed → Store → Retrieve → Rerank → Generate.",
+    "ideal_context": "| **RAG pipeline** | Split → Embed → Store → Retrieve → Rerank → Generate |",
+    "must_contain": [
+      "Split → Embed → Store → Retrieve → Rerank → Generate"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q005",
+    "category": "cite",
+    "query": "How does step 3 recover similarity scores from Chroma?",
+    "ideal_answer": "Chroma is configured as a persisted, cosine-default store whose search returns {text, metadata, score}; scores are recovered via the _collection.query path using 1−distance, because similarity_search hides the scores and step 3 needs min_score plus the Step-2 output shape.",
+    "ideal_context": "Chroma (persisted, cosine default)          LangChainStore.search() → {text, metadata, score}\n   │                                         (scores recovered via _collection.query, 1−distance)",
+    "must_contain": [
+      "scores recovered via _collection.query",
+      "{text, metadata, score}"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q006",
+    "category": "cite",
+    "query": "Which reranker does step 3 use, and where does it sit?",
+    "ideal_answer": "The retriever is followed by a second-stage cross-encoder reranker, ms-marco-MiniLM-L-6-v2, which re-sorts the candidates down to top_n.",
+    "ideal_context": "Reranker.rerank(question, candidates)       (cross-encoder 2nd stage)\n   │                                            ms-marco-MiniLM-L-6-v2, re-sort → top_n",
+    "must_contain": [
+      "ms-marco-MiniLM-L-6-v2",
+      "cross-encoder 2nd stage"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q007",
+    "category": "cite",
+    "query": "Why does step 3 use a direct cross-encoder instead of LangChain's compression retriever?",
+    "ideal_answer": "Step 3 deliberately skips ContextualCompressionRetriever: that API expects a Document-based BaseRetriever, step 3's retriever is dict-shaped, and the import path does not live in the modern langchain split.",
+    "ideal_context": "| **Reranker = direct cross-encoder, not `ContextualCompressionRetriever`** | That API needs a `Document`-based `BaseRetriever`; our retriever is dict-shaped, and the import path isn't in the modern `langchain` split |",
+    "must_contain": [
+      "ContextualCompressionRetriever",
+      "dict-shaped"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q008",
+    "category": "cite",
+    "query": "What is the core design insight about LangChain and the PromptRegistry?",
+    "ideal_answer": "LangChain's PromptTemplate is an adapter over a shared PromptRegistry — not the source of truth. The registry owns Content (template), Policy (model/temperature), and Evidence (eval scores, run log); LangChain only executes the approved prompt via LangChainPromptAdapter.build_chain.",
+    "ideal_context": "**The core design insight ⭐**\nLangChain's `PromptTemplate` is an **adapter over a shared PromptRegistry — not the source of\ntruth.** The registry owns Content (template), Policy (model/temperature), and Evidence (eval\nscores, run log). LangChain only *executes* the approved prompt via `LangChainPromptAdapter.build_chain(...)`.",
+    "must_contain": [
+      "adapter over a shared PromptRegistry",
+      "not the source of",
+      "LangChainPromptAdapter.build_chain"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q009",
+    "category": "cite",
+    "query": "How does output_schema behave on an approved prompt version?",
+    "ideal_answer": "Each prompt version carries an output_schema — the output contract for format, length, citations, and refusal. It is versioned policy that gets eval and rollback, and editing it on an approved version forces re-eval with no silent change.",
+    "ideal_context": "| **`output_schema` on each version** | The output *contract* (format/length/citations/refusal) is versioned policy → gets eval + rollback; editing it on an approved version forces re-eval (no silent change) |",
+    "must_contain": [
+      "output_schema",
+      "forces re-eval"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q010",
+    "category": "cite",
+    "query": "Which vector store does step 3 use and how is it configured?",
+    "ideal_answer": "Step 3 uses ChromaDB, cosine similarity, persisted across runs.",
+    "ideal_context": "| Vector store | ChromaDB (cosine, persisted) |",
+    "must_contain": [
+      "ChromaDB (cosine, persisted)"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q011",
+    "category": "cite",
+    "query": "Which embedding model does step 3 record, and why that choice?",
+    "ideal_answer": "Step 3 records the same embedding as Step 2 — qwen3-embed at 1024 dimensions — chosen for an apples-to-apples A/B rather than HuggingFaceEmbeddings or bge, via a custom Qwen3Embeddings adapter where the query uses instruction-aware query_embed.",
+    "ideal_context": "| **Same embedding as Step 2** (qwen3-embed, 1024-dim) | Apples-to-apples A/B — not `HuggingFaceEmbeddings`/bge |",
+    "must_contain": [
+      "qwen3-embed, 1024-dim",
+      "not `HuggingFaceEmbeddings`/bge"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q012",
+    "category": "misroute",
+    "query": "Which file implements the keyword evaluator in the LangChain rebuild?",
+    "ideal_answer": "The keyword evaluator of the LangChain rebuild lives in src/langchain_rag/evaluator.py and computes the same 4 metrics as Step 2. A router keying on 'evaluator' could land this in step 2's eval machinery (S1); the question asks about the LangChain rebuild, whose evaluator is step-3's own file (S2).",
+    "ideal_context": "│   ├── evaluator.py          # 4 keyword metrics (same as Step 2)",
+    "must_contain": [
+      "4 keyword metrics (same as Step 2)",
+      "evaluator.py"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q013",
+    "category": "misroute",
+    "query": "How many retries does step 5's grade loop allow before giving up?",
+    "ideal_answer": "The grade_decision node passes when grade >= 0.7, retries by rewriting while retry_count < 3, and otherwise passes anyway — explicitly 'Give up after 3 retries'. The 3-retry cap is step 5's (S2); a router keying on 'retry' could wrongly land this in the production failure-handling bundle (S3).",
+    "ideal_context": "def grade_decision(state: RAGState) -> str:\n    if state[\"grade\"] >= 0.7:\n        return \"pass\"\n    elif state[\"retry_count\"] < 3:\n        return \"retry\"\n    else:\n        return \"pass\"  # Give up after 3 retries",
+    "must_contain": [
+      "\"retry_count\"] < 3",
+      "Give up after 3 retries"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q014",
+    "category": "abstain",
+    "query": "When does step 5 suggest adding a refuse node?",
+    "ideal_answer": "Step 5's exercise list suggests adding a refuse node for the case when no good answer exists — the system should say so rather than answer. The bundle does not specify the refuse node's internal behavior; that is left as an exercise.",
+    "ideal_context": "6. **Add a \"refuse\" node** — when no good answer exists, say so",
+    "must_contain": [
+      "no good answer exists, say so"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q015",
+    "category": "abstain",
+    "query": "What should the system return to the user after 3 retries still grade poorly?",
+    "ideal_answer": "Step 5 poses exactly this as exam question 3 — 'You retry 3 times and still get grade=0.3. What do you return to the user?' — and records no answer for it in the bundle. The only recorded behavior nearby is that grade_decision falls through to pass after 3 retries; the user-communication policy itself is unrecorded, so a faithful response must not invent one.",
+    "ideal_context": "3. **Retry:** You retry 3 times and still get grade=0.3. What do you return to the user?",
+    "must_contain": [
+      "What do you return to the user?"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q016",
+    "category": "cite",
+    "query": "How does step 5 version prompts per graph node?",
+    "ideal_answer": "Each graph node gets its own prompt; the composite key becomes prompt_id + node_name + source_type. The rewrite, grade, and generate nodes each have an approved template under their own prompt_id (REWRITE, GRADE, GENERATE).",
+    "ideal_context": "### 4. Graph-Specific Prompts — Node-Level Versioning ⭐ NEW\n\nEach node in the graph has its own prompt. The composite key now includes `node_name`:\n\n#### Composite Key: `prompt_id + node_name + source_type`",
+    "must_contain": [
+      "node_name",
+      "prompt_id + node_name + source_type"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q017",
+    "category": "cite",
+    "query": "How does a node-level prompt get looked up at run time?",
+    "ideal_answer": "get_for_node(node_name, source_type) scans the shared registry for the first record whose node_name and source_type match and whose status is approved, raising KeyError with 'No approved prompt for node=...' when none exists.",
+    "ideal_context": "def get_for_node(self, node_name: str, source_type: str = None) -> dict:\n    \"\"\"Get the approved prompt for a specific graph node.\"\"\"\n    for key, record in self._registry.items():\n        if (record[\"node_name\"] == node_name and\n            record[\"source_type\"] == source_type and\n            record[\"status\"] == \"approved\"):\n            return record\n    raise KeyError(f\"No approved prompt for node={node_name}, source={source_type}\")",
+    "must_contain": [
+      "get_for_node",
+      "No approved prompt for node"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q018",
+    "category": "basic",
+    "query": "In step 5's eval-by-node scorecard, which node is the bottleneck?",
+    "ideal_answer": "The scorecard shows rewrite quality 0.85 and generate faithfulness 0.88 but grade accuracy 0.72 — so grade is the bottleneck, and the guidance is to focus improvement on the grade node's prompt.",
+    "ideal_context": "node_scores = {\n    \"rewrite\": {\"quality\": 0.85},      # Rewrite is good\n    \"grade\": {\"accuracy\": 0.72},       # Grade is the bottleneck\n    \"generate\": {\"faithfulness\": 0.88}, # Generate is good\n}\n\n# → Focus improvement on the grade node's prompt",
+    "must_contain": [
+      "\"rewrite\": {\"quality\": 0.85}",
+      "\"grade\": {\"accuracy\": 0.72}",
+      "Focus improvement on the grade node's prompt"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q019",
+    "category": "basic",
+    "query": "What does the supervisor agent do in step 6?",
+    "ideal_answer": "The supervisor decides which agents to use: it takes the user question and outputs the agent list plus their execution order (e.g. researcher then fact-checker).",
+    "ideal_context": "| Supervisor | Decide which agents to use | User question | Agent list + order |",
+    "must_contain": [
+      "Decide which agents to use",
+      "Agent list + order"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q020",
+    "category": "cite",
+    "query": "How does step 6 enforce matched-set testing of agent prompts?",
+    "ideal_answer": "promote_bundle promotes every prompt in an agent bundle together: it first verifies all member prompts are in TESTING status, so the entire pipeline is tested as a matched set before promotion; only then does it promote each and flip the bundle to approved.",
+    "ideal_context": "def promote_bundle(self, bundle_id: str, reason: str = \"\") -> None:\n    \"\"\"Promote all prompts in a bundle together.\n\n    All agent prompts must be in TESTING status before bundle promotion.\n    This ensures the entire pipeline is tested as a matched set.\n    \"\"\"",
+    "must_contain": [
+      "promote_bundle",
+      "All agent prompts must be in TESTING status before bundle promotion",
+      "tested as a matched set"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q021",
+    "category": "cite",
+    "query": "What happens when one agent in a bundle is not in TESTING?",
+    "ideal_answer": "promote_bundle checks every member: if any agent's record is not in testing status it raises ValueError with 'Agent <name> not in TESTING status' and nothing is promoted.",
+    "ideal_context": "    # Verify all agents are in TESTING\n    for agent_name, agent_config in bundle[\"agents\"].items():\n        record = self.get(agent_config[\"prompt_id\"], agent_config[\"version\"])\n        if record[\"status\"] != \"testing\":\n            raise ValueError(f\"Agent {agent_name} not in TESTING status\")",
+    "must_contain": [
+      "not in TESTING status"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q022",
+    "category": "misroute",
+    "query": "What is step 3's dev/test convention for offline tests?",
+    "ideal_answer": "Unit tests never hit the network, never load models, and never call the LLM (they mock the boundary); integration tests are the only ones that load real models, and they share a module-scoped embedder fixture so a model loads once, not per test. This convention is step 3's (S2) — a router keying on 'offline tests' or 'embedder fixture' could misconstrue it as the eval/monitoring conventions in S1 or S5; the Definition of Done adds ruff clean, mypy --strict clean, pytest offline, mentor review, findings recorded in doc/notes.md.",
+    "ideal_context": "> **Dev/test convention:** unit tests never hit the network, never load models, never call the\n> LLM (they mock the boundary). Integration tests are the only ones that load real models — and\n> they share a **module-scoped embedder fixture** so a model loads **once**, not per test.",
+    "must_contain": [
+      "never hit the network",
+      "module-scoped embedder fixture",
+      "mypy --strict"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q023",
+    "category": "basic",
+    "query": "How does step 6 find the weakest agent from eval results?",
+    "ideal_answer": "evaluate_agent_bottleneck iterates researcher, fact_checker, and summarizer; for any agent whose avg_score is below 0.5 it prints 'Bottleneck: <agent>'.",
+    "ideal_context": "def evaluate_agent_bottleneck(eval_results):\n    \"\"\"Find which agent hurts overall quality.\"\"\"\n    for agent_name in [\"researcher\", \"fact_checker\", \"summarizer\"]:\n        agent_scores = eval_results[f\"{agent_name}_scores\"]\n        if agent_scores[\"avg_score\"] < 0.5:\n            print(f\"Bottleneck: {agent_name}\")",
+    "must_contain": [
+      "Bottleneck: {agent_name}",
+      "\"avg_score\"] < 0.5"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q024",
+    "category": "degrade",
+    "query": "How does step 5 handle a low retrieval grade at run time?",
+    "ideal_answer": "The grade node scores retrieval quality; grade_decision then routes: grade >= 0.7 passes to generate, and while retry_count < 3 it returns to rewrite for another retrieval attempt, giving up after 3 retries — a runtime degradation path when retrieval quality is poor.",
+    "ideal_context": "def grade_decision(state: RAGState) -> str:\n    if state[\"grade\"] >= 0.7:\n        return \"pass\"\n    elif state[\"retry_count\"] < 3:\n        return \"retry\"\n    else:\n        return \"pass\"  # Give up after 3 retries",
+    "must_contain": [
+      "state[\"grade\"] >= 0.7",
+      "\"retry_count\"] < 3",
+      "Give up after 3 retries"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q025",
+    "category": "cite",
+    "query": "Where does LangGraph enter the pipeline series?",
+    "ideal_answer": "The first four steps build a linear pipeline; step 5 makes it agentic — reason, use tools, retry, ask for human help — and that is where LangGraph enters. The difference is framed as 'retrieve and hope' versus 'retrieve, grade, retry if needed'.",
+    "ideal_context": "The first four steps built a linear pipeline. This step makes it **agentic** — the system can reason, use tools, retry, and even ask for human help. This is where LangGraph enters.\n\n> **Why this step matters:** Agentic RAG is the difference between \"retrieve and hope\" and \"retrieve, grade, retry if needed.\"",
+    "must_contain": [
+      "This is where LangGraph enters",
+      "retrieve and hope"
     ],
     "source": "S2",
     "path": "data/docs/s2_frameworks_bundle.md"
