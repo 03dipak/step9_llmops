@@ -22,6 +22,7 @@ module review.
 | D12 | **Per-module design + test-contract docs** live in `doc/design/0X_*.md` (LLD: files/interfaces/data flow + test-case matrix, contracts only, no code). Land **just-in-time** when the learner starts each module (00b, 01–07); Mod 0 has no LLD (read-only, `review` checklist instead). Reviewed by the module's primary role before build | IN | `doc/task/*.md` remain the binding contracts; design docs are implementation guides |
 | D13 | **`doc/notes/` = the learner's workspace**, indexed in `doc/notes/README.md`: files land when their module runs; absent-until-produced is by design (not a broken link); committed as review evidence; markdown-only, no keys | IN | `doc/notes/README.md`; module references in `doc/task/00..07` |
 | D14 | **Corpus = self-authored step-series docs only** (S1–S3: step1–8 README/doc bundles · S4: step4 `QA_DEEP_DIVES.md` · S5: step4/step9 README+AGENTS). External course material stays **out of the public repo** — zero provenance risk, fully interview-showable, no overlap between sources | IN | `doc/task/01_data_testset.md` (Source ids) |
+| D15 | **Multi-source golden ids use `MS-Q\d+`** with union convention (`source: "S1+S3"`, `path` joined with ` + `, `ideal_context` = one contiguous excerpt per row; `must_contain` validated across the union). T-01-4 regex amended to accept `MS-Q\d+` | IN | `doc/design/01_lld_tests.md` (T-01-4); `doc/notes/01_corpus_plan.md` rule 5 |
 
 ## Deferral register (copied from step4 `GAP_REGISTER.md`, all OUT for step9)
 

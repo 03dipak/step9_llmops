@@ -1,0 +1,211 @@
+[
+  {
+    "id": "S1-Q001",
+    "category": "basic",
+    "query": "What chunking strategy does step 1 use, and what are the chunk size and overlap?",
+    "ideal_answer": "Step 1 uses fixed-size chunking with overlap: chunk_size is 512 tokens, chunk_overlap is 50 tokens, chosen to balance context richness versus retrieval precision and to prevent information loss at chunk boundaries.",
+    "ideal_context": "| `chunk_size` | 512 tokens | Balances context richness vs retrieval precision |\n| `chunk_overlap` | 50 tokens | Prevents information loss at chunk boundaries |",
+    "must_contain": [
+      "fixed-size",
+      "512 tokens",
+      "50 tokens"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q002",
+    "category": "cite",
+    "query": "Which embedding model does step 1 use, and does it need an API call?",
+    "ideal_answer": "Step 1 embeds with BAAI/bge-base-en-v1.5 via fastembed — a local ONNX model on CPU with no API needed, producing 768-dimensional vectors.",
+    "ideal_context": "**Model:** `BAAI/bge-base-en-v1.5` via fastembed (local ONNX, no API needed).",
+    "must_contain": [
+      "bge-base-en-v1.5",
+      "fastembed",
+      "local ONNX"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q003",
+    "category": "basic",
+    "query": "What is the prompt status lifecycle in step 1's prompt registry?",
+    "ideal_answer": "Prompts move forward-only through draft → testing → approved → retired. A retired prompt is a terminal state and cannot be promoted; templates are immutable — changing one creates a new version instead of overwriting.",
+    "ideal_context": "- `DRAFT → TESTING → APPROVED → RETIRED` (forward only)\n- Cannot promote from RETIRED (terminal state)",
+    "must_contain": [
+      "draft",
+      "testing",
+      "approved",
+      "retired",
+      "terminal state"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q004",
+    "category": "abstain",
+    "query": "What is the capital of France?",
+    "ideal_answer": "The corpus does not contain this information. Step 1 explicitly lists this exact question as a negative test — \"not in docs → should refuse\" — and the generator prompt says: if the context doesn't contain the answer, say \"I don't have enough information to answer this question.\"",
+    "ideal_context": "| Negative tests | \"What is the capital of France?\" (not in docs → should refuse) |",
+    "must_contain": [
+      "not in docs",
+      "I don't have enough information to answer this question."
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S2-Q001",
+    "category": "basic",
+    "query": "Where does LangGraph enter the step series, and what does it add?",
+    "ideal_answer": "LangGraph enters in step 5, which makes the pipeline agentic — the system can reason, use tools, retry, and even ask for human help. It adds LangGraph state graphs: nodes, edges, and conditional routing.",
+    "ideal_context": "The first four steps built a linear pipeline. This step makes it **agentic** — the system can reason, use tools, retry, and even ask for human help. This is where LangGraph enters.",
+    "must_contain": [
+      "agentic",
+      "LangGraph",
+      "conditional routing"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q002",
+    "category": "cite",
+    "query": "What are agent handoffs in step 6, and why does step 6 need multiple agents?",
+    "ideal_answer": "Step 6 says one agent isn't enough for complex RAG: you need a team of agents — a researcher, a fact-checker, a summarizer — working together. Agent handoffs are how agents pass work to each other, and LangSmith traces their decisions so you can debug and optimize.",
+    "ideal_context": "One agent isn't enough for complex RAG. You need a **team of agents**: a researcher, a fact-checker, a summarizer, working together. LangSmith traces their decisions so you can debug and optimize.",
+    "must_contain": [
+      "handoffs",
+      "pass work to each other",
+      "researcher"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S3-Q001",
+    "category": "degrade",
+    "query": "What should the step 7 pipeline do when the Groq API returns a 500 error?",
+    "ideal_answer": "Step 7 treats failure handling — graceful degradation when things break — as a learning objective, and its exam questions ask directly whether the pipeline fails gracefully when Groq returns a 500 error. The expected behavior is graceful degradation, not a crash.",
+    "ideal_context": "6. **Failure handling** — Graceful degradation when things break",
+    "must_contain": [
+      "Graceful degradation",
+      "fail gracefully"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q002",
+    "category": "conflict",
+    "query": "How much does a 6% quality improvement cost?",
+    "ideal_answer": "The corpus reports two different examples with different numbers for the same tension: in the A/B example, V3 is 6% better but 50% more expensive; in the cost-per-version comparison, V2 is 17% more expensive for a 6% quality improvement. Both passages must be surfaced — the corpus gives no single answer.",
+    "ideal_context": "# Decision: V3 is 6% better but 50% more expensive\n# → Promote if quality matters more than cost",
+    "must_contain": [
+      "6% better but 50% more expensive",
+      "17% more expensive for 6% quality improvement"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q003",
+    "category": "cite",
+    "query": "What does shadow testing do in step 7?",
+    "ideal_answer": "Shadow testing runs a new prompt version alongside production but only returns the production answer to the user; the shadow candidate runs in the background and its result is logged for comparison.",
+    "ideal_context": "Run new prompt version alongside production, but only return production answer:",
+    "must_contain": [
+      "only return production answer",
+      "background"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q004",
+    "category": "basic",
+    "query": "Which input guardrails does step 7 apply before a query reaches the pipeline?",
+    "ideal_answer": "Step 7's input guardrails apply four checks: prompt injection detection, off-topic filtering, rate limiting, and input length validation.",
+    "ideal_context": "│  - Prompt injection detection                    │\n│  - Off-topic filtering                           │\n│  - Rate limiting                                 │\n│  - Input length validation                       │",
+    "must_contain": [
+      "Prompt injection detection",
+      "Off-topic filtering",
+      "Rate limiting",
+      "Input length validation"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S4-Q001",
+    "category": "cite",
+    "query": "Why is the judge LLM separate from the generator LLM?",
+    "ideal_answer": "Because if the judge followed the generator's model chain (Groq → Gemini fallback), a run could be scored by a different judge than the baseline — invalidating A/B comparisons. A single fixed judge via LLM_BASE_URL/LLM_API_KEY keeps evaluation comparable.",
+    "ideal_context": "**Q4. Why does the judge use one LLM (`LLM_BASE_URL`/`LLM_API_KEY`) separate from the generator?**",
+    "must_contain": [
+      "LLM_BASE_URL",
+      "a run could be scored by a different judge than",
+      "invalidating A/B comparisons"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S5-Q001",
+    "category": "misroute",
+    "query": "How does hybrid retrieval combine dense and sparse signals?",
+    "ideal_answer": "Step 4 combines dense (cosine) and sparse (BM25) retrieval, fuses them, then reranks, keeping top-k results with source metadata. This is step 4's retrieval design — step 1's hand-written retriever is pure numpy cosine similarity and must NOT be the router's target for this query.",
+    "ideal_context": "│  dense (cosine) + sparse (BM25) → fuse → rerank      │",
+    "must_contain": [
+      "dense (cosine)",
+      "BM25",
+      "fuse",
+      "rerank"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q002",
+    "category": "cite",
+    "query": "Which two metric engines does step 4 evaluate the same test cases through?",
+    "ideal_answer": "Step 4 backs its three-level evaluation suite with two metric engines — DeepEval and Ragas — running the same test cases through both behind neutral schemas via run_backends, so it does not trust a single vendor's score.",
+    "ideal_context": "| **Dual-backend evaluation seam** | **Same** test cases through **both DeepEval and Ragas** behind neutral schemas (`run_backends`) | ✅ seam works (live smoke test) |",
+    "must_contain": [
+      "DeepEval",
+      "Ragas",
+      "run_backends"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q003",
+    "category": "basic",
+    "query": "How does step 4 decide which source or sources a question should query?",
+    "ideal_answer": "A router decides which source(s) to query using rules, embedding similarity, or an LLM — the routing strategy is a waterfall that tries cheap strategies first and elevates to an LLM classifier only as needed.",
+    "ideal_context": "│  Rules/embedding/LLM: which source(s) to query?       │",
+    "must_contain": [
+      "Rules/embedding/LLM",
+      "waterfall"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "MS-Q001",
+    "category": "multi-source",
+    "query": "Why can registry rollback be a data operation instead of a code redeploy?",
+    "ideal_answer": "Because the registry separates mechanism from state: the PromptRegistry class is git-versioned code while the state lives in registry.json. Production answers come from registry.get(prompt_id, approved_only=True), so rolling back means flipping status in registry.json — no code redeploy, no binary rollback. This is stated in both the shared-registry rules (step 1) and the step-7 deployment note.",
+    "ideal_context": "2. **Code ≠ Data** — the *mechanism* (the `PromptRegistry` class, git-versioned) is separate from the *state* (`registry.json`). `promote()` / `rollback()` only flip data fields, so a rollback is a **data operation, not a code redeploy**.",
+    "must_contain": [
+      "data operation, not a code redeploy",
+      "flipping status in",
+      "No code redeploy, no binary rollback."
+    ],
+    "source": "S1+S3",
+    "path": "data/docs/s1_early_steps_bundle.md + data/docs/s3_lifecycle_bundle.md"
+  }
+]

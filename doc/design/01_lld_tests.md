@@ -50,7 +50,7 @@ jupyter_notebook/NB-01_anchor_check.ipynb # scripted anchor check (your code)
 | T-01-1 | Counts in range | row counts per file | 120–160 / 60–75 / 100–120 | "counts in target ranges" |
 | T-01-2 | Enum valid | every `category` value | ∈ {cite, conflict, misroute, abstain, degrade, multi-source, basic} | schema contract |
 | T-01-3 | Groundedness 100% | script: each `ideal_context`/`must_contain` fragment exists in corpus chunks | 0 rows fail; per-row PASS/FAIL report with row ids | "100% grounded" |
-| T-01-4 | Ids unique + prefixed | id regex `S[1-5]-Q\d+`, no duplicates | 0 violations | schema contract |
+| T-01-4 | Ids unique + prefixed | id regex `S[1-5]-Q\d+` or `MS-Q\d+` (multi-source union rows, D15), no duplicates | 0 violations | schema contract |
 | T-01-5 | source/path truthful | `source` matches the file at `path` (corpus manifest cross-check) | 0 mismatches | "source+path correct" |
 | T-01-6 | Category minimums | per-set counts of misroute/conflict/abstain/degrade | ≥5 each | "categories present" |
 | T-01-7 | No secrets | regex scan queries+answers for `gsk_`, `sk-`, `ADMIN_TOKEN`, key patterns | 0 hits | "no secrets" |
