@@ -47,7 +47,7 @@ uv add langchain-core langchain-groq langchain-google-genai \
 
 ```bash
 uv add --dev pytest pytest-cov pytest-mock ruff mypy pyright \
-         ipykernel ipywidgets nbclient nbformat
+         ipykernel ipywidgets nbclient nbformat pytest-asyncio
 ```
 
 `uv add --dev` writes to `[dependency-groups] dev` — then check:

@@ -16,11 +16,12 @@ module review.
 | D6 | **Judge**: pinned, shared across backends, throttled, JSON-mode + schema + salvage; excluded from the gate | IN | step4 `eval/judge.py:26-27`; `doc/task/02_prompts_judge.md` |
 | D7 | **CLI entry deferred** — no `[project.scripts]` unless Mod 7 needs it | OUT | `doc/task/00b_uv_scaffold.md` |
 | D8 | **Toolchain = uv**, mirroring step4 (uv_build src-layout, `[dependency-groups] dev`, pytest addopts `-m 'not integration'`) | IN | `doc/task/00b_uv_scaffold.md`; step4 `pyproject.toml` |
-| D9 | **Judge endpoint for step9**: default `Qwen/Qwen2.5-7B-Instruct-AWQ` via `LLM_BASE_URL`; local Ollama `/v1` candidate — **verify in NB, not assumed** | 🟡 verify at Mod 00b (NB-000) | step4 `config.py:43`; `config_probe` notebook |
+| D9 | **Judge endpoint for step9**: default `Qwen/Qwen2.5-7B-Instruct-AWQ` via `LLM_BASE_URL`; local Ollama `/v1` candidate — **verify in NB, not assumed** | **✅ verified** at Mod 00b (NB-000), 2026-09-10 — hosted endpoint PASS on first attempt; Ollama fallback documented, not exercised | step4 `config.py:43`; `doc/notes/00b_probe_notes.md` |
 | D10 | **CLI gate numbers**: step4 SLO values (`SLO_P95_MS=3000`, `SLO_TTFT_P95_MS=1200`) are the starting baseline; recalibrate only with collected data | IN | step4 §7 pillar 5 |
 | D11 | **Logs carry metadata/counts/ids, never content** (logutil invariant) — applies to the learner's logs too | IN | step4 `src/multi_source_rag/logutil/` + `step4:doc/task/00_logutil.md`; rejected Perplexity "log inputs/outputs" advice |
 | D12 | **Per-module design + test-contract docs** live in `doc/design/0X_*.md` (LLD: files/interfaces/data flow + test-case matrix, contracts only, no code). Land **just-in-time** when the learner starts each module (00b, 01–07); Mod 0 has no LLD (read-only, `review` checklist instead). Reviewed by the module's primary role before build | IN | `doc/task/*.md` remain the binding contracts; design docs are implementation guides |
 | D13 | **`doc/notes/` = the learner's workspace**, indexed in `doc/notes/README.md`: files land when their module runs; absent-until-produced is by design (not a broken link); committed as review evidence; markdown-only, no keys | IN | `doc/notes/README.md`; module references in `doc/task/00..07` |
+| D14 | **Corpus = self-authored step-series docs only** (S1–S3: step1–8 README/doc bundles · S4: step4 `QA_DEEP_DIVES.md` · S5: step4/step9 README+AGENTS). External course material stays **out of the public repo** — zero provenance risk, fully interview-showable, no overlap between sources | IN | `doc/task/01_data_testset.md` (Source ids) |
 
 ## Deferral register (copied from step4 `GAP_REGISTER.md`, all OUT for step9)
 

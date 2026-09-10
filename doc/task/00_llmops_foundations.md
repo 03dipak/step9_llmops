@@ -39,6 +39,9 @@ This module makes the operating layer the frame. One line to memorize (source:
    - Gemini's 4 sections → which pillars do they hit? (You'll find: 1, 3, 6, 8 — never 4 or 7.)
    - Claude.ai's 10 modules → map each to a step1–8 repo (the Journey Map already does this).
    - Perplexity's 5 phases → which one is the "decision layer"? (Phase 3, Gate & Promote.)
+4. Repo setup (done 2026-09-10): branch `main`, remote `origin` =
+   `git@github.com:03dipak/step9_llmops.git`, root commit `36ee127` (21 files).
+   `.env` (real keys) was correctly **not** committed — `.gitignore` blocked it.
 
 ## Depends on
 
@@ -51,6 +54,8 @@ This module makes the operating layer the frame. One line to memorize (source:
   code-free, every claim verifiable against step4 files or the Journey Map.
 - Deferrals are named with *why* — and `doc/DECISIONS.md` is the single source of truth for
   IN/OUT status. No ad-hoc deferrals outside the register.
+- Repo hygiene (verified 2026-09-10 by `review`): `.env` is ignored and untracked —
+  `git ls-files` shows only `.env.example`; no secret patterns anywhere in HEAD.
 
 ## Exit criteria
 
@@ -58,6 +63,7 @@ This module makes the operating layer the frame. One line to memorize (source:
 - [ ] You can name all 8 pillars and which step9 module owns each
 - [ ] You can name 3 deferrals (#8/#10/#13-19/#14/#15) and say *why* they're deferred, not forgotten
 - [ ] You can answer every Interview-Q&A below without notes
+- [x] Repo initialized + pushed (2026-09-10): `main`, origin `git@github.com:03dipak/step9_llmops.git`, root commit `36ee127`, `.env` untracked
 
 ## Verify
 

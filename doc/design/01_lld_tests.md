@@ -24,7 +24,7 @@
 ### Files
 
 ```
-data/                          # corpus materialized here before authoring (18 transcripts + step4 docs)
+data/docs/                     # corpus materialized here before authoring: s1..s5 step-series doc bundles (D14)
 eval/goldens/retriever_goldens.json      # 120–160 rows, all categories
 eval/goldens/query_processing_goldens.json # 60–75 rows incl. misroute negatives (#24)
 eval/goldens/correctness_goldens.json    # 100–120 rows
@@ -61,7 +61,7 @@ jupyter_notebook/NB-01_anchor_check.ipynb # scripted anchor check (your code)
 
 | Role | Checked | Verdict |
 |---|---|---|
-| **data** (owner) | Schema exactness (no extra fields), groundedness rule, per-source stratification 25–32×5, corpus = transcripts + step4 docs only; chunk strategy documented in `01_corpus_plan.md` | ✅ |
+| **data** (owner) | Schema exactness (no extra fields), groundedness rule, per-source stratification 25–32×5, corpus = step-series bundles (S1–S5, D14) only; chunk strategy documented in `01_corpus_plan.md` | ✅ |
 | **tester** (co-owner) | All 9 cases deterministic + offline (no network, no judge calls); category minimums make Mod-3 stratification honest; per-row PASS/FAIL report satisfies the earlier F-amendment | ✅ |
 | **security** | T-01-7 no-secret scan; category "abstain" rows must never contain key-like content either; goldens are committed data — treat as code review | ✅ |
 | **ops** | Golden counts feed Mod-3 gate (≥3 metrics/source, task 03); per-source stratification makes `where`-filter cost/routing provable later (Mod 4) | ✅ |

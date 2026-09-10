@@ -18,7 +18,7 @@ checks. Agents never write code into `src/`, `tests/`, `jupyter_notebook/`, or C
 | `planner` / `pm` | **Planner** | Module order from README / task docs only — never invented. Exit criteria per module. |
 | `security` / `guardrails` | **Security** | No secrets; content-free logs; abstention + citation allowlist + circuit breaker in scope; #19/#22/#23 registered OUT. |
 | `ops` / `sre` | **SRE** | Metrics-to-compute: latency, TTFT/P95, cost, reliability. Alerting/drift = Step 7. |
-| `data` / `ingestion` | **Data** | `{text, metadata}` schema, source tags; corpus = class transcripts + QA_DEEP_DIVES content; #25 embedding-drift playbook mapped. |
+| `data` / `ingestion` | **Data** | `{text, metadata}` schema, source tags; corpus = self-authored step-series doc bundles (S1–S5, D14); #25 embedding-drift playbook mapped. |
 | `ux` / `product` | **UX** | Chat-log schema, batch citations, abstention / degraded / conflict states; no feedback capture in Step 4/9. |
 
 ## Task → role quick map
@@ -43,3 +43,4 @@ checks. Agents never write code into `src/`, `tests/`, `jupyter_notebook/`, or C
 - **Keep internal links green.**
 - **Manager-facing docs stay code-free; task docs carry the spec.**
 - **No secrets.** Never write API keys / tokens into files.
+- **`data` vs `data/`** — `data` (no slash) is always the role trigger; `data/` (slash) is always the corpus folder path. Never mix the two.

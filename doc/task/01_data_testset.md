@@ -28,9 +28,10 @@ portfolio is fatal). Quantity is a decision, not a wish.
 | **Correctness + faithfulness** | **100–120** | per-gate-metric ~100+ so ±0.03 tolerance is honest |
 | Pipeline / chunking / ingestion / store | keep step4 counts, add **only** missing edge cases | component smoke ≠ gate input — don't overspend here |
 
-Corpus for query authoring (grounding anchors): your **18 class transcripts** (LLMOps
-topics — the material you study is the RAG's data) + step4's `doc/QA_DEEP_DIVES.md` + README
-docs. Goldens must be *answerable from that text alone*.
+Corpus for query authoring (grounding anchors): **your own step-series docs** — README/doc
+bundles from the step1–8 repos + step4's `doc/QA_DEEP_DIVES.md` + step4/step9 README+AGENTS
+(D14: self-authored only; external material stays out of the public repo). Goldens must be
+*answerable from that text alone*.
 
 ## Schema (extend step4's retriever schema with a category)
 
@@ -54,11 +55,13 @@ docs. Goldens must be *answerable from that text alone*.
 - **Groundedness rule:** every row's `ideal_answer` must trace to a chunk in the corpus. If
   you cannot paste the anchor, the row does not exist. (This is the anti-hallucination rule
   for the testset itself.)
-- **Source ids (S1–S5):** S1 = module-1 transcripts · S2 = module-2 transcripts ·
-  S3 = module-3 transcripts · S4 = step4 `doc/QA_DEEP_DIVES.md` · S5 = README/docs bundle
-  (step4 README + step9 README/AGENTS). A deliberate shift from step4's type tags
-  (`pdf | web | db | text`): step9's corpus is documents, and `where`-filter routing
-  (Mod 4) keys off source ids — the same ids prefix every golden `id`.
+- **Source ids (S1–S5):** S1 = early-steps bundle (step1+step2 READMEs) · S2 = framework
+  bundle (step3+step5+step6 READMEs) · S3 = lifecycle bundle (step7+step8 READMEs) ·
+  S4 = step4 `doc/QA_DEEP_DIVES.md` · S5 = docs bundle (step4 README/AGENTS + step9
+  README/AGENTS). Composition rule (D14): **self-authored step-series docs only, no overlap
+  between sources** — every step1–8 repo is represented exactly once. `where`-filter routing
+  (Mod 4) keys off source ids — the same ids prefix every golden `id` (a deliberate shift
+  from step4's `pdf | web | db | text` type tags).
 
 ## Deliverables
 
@@ -73,7 +76,7 @@ docs. Goldens must be *answerable from that text alone*.
 ## Depends on
 
 - Task 00b (package + pytest scaffold exist; the NB-01 anchor-check script runs under `uv run`).
-- Corpus present: the 18 class transcripts + step4 docs (`doc/QA_DEEP_DIVES.md`, README) —
+- Corpus present: self-authored step-series bundles (S1–S5, see Source ids above) —
   read-only inputs for query authoring.
 
 ## Contracts (reference, don't redefine)
