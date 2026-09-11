@@ -1,0 +1,1403 @@
+[
+  {
+    "id": "MS-Q014",
+    "category": "conflict",
+    "query": "In production, which model scores the eval metrics across the step series?",
+    "ideal_answer": "Both, and they must not be merged: the step-2 suite's judge is openai/gpt-oss-120b (Groq free tier, ~8000 tokens/min), while the step-4 judge is a single fixed Qwen/Qwen2.5-7B-Instruct-AWQ via LLM_BASE_URL.",
+    "ideal_context": "**Judge: Groq (free tier).** The suite uses `openai/gpt-oss-120b` — the only freely-accessible model verified on this Groq account. The free tier is TPM-limited (~8000 tokens/min), so judge calls are serialized through a shared async semaphore (`JUDGE_MAX_CONCURRENT`, default `1`) and 429s are retried (up to 10×) sleeping the exact retry-after seconds parsed from the error message.",
+    "must_contain": [
+      "openai/gpt-oss-120b",
+      "Qwen/Qwen2.5-7B-Instruct-AWQ"
+    ],
+    "source": "S1+S4",
+    "path": "data/docs/s1_early_steps_bundle.md + data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "MS-Q015",
+    "category": "multi-source",
+    "query": "Which rules govern prompt versioning across the series?",
+    "ideal_answer": "The early registry keeps a forward-only DRAFT → TESTING → APPROVED → RETIRED lifecycle; the graph era adds per-node eval gates recording Evidence, approved versions stay immutable, and status stays data (S2). Both bundles contribute the rule.",
+    "ideal_context": "- `DRAFT → TESTING → APPROVED → RETIRED` (forward only)",
+    "must_contain": [
+      "DRAFT → TESTING → APPROVED → RETIRED",
+      "Approved versions immutable"
+    ],
+    "source": "S1+S2",
+    "path": "data/docs/s1_early_steps_bundle.md + data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "MS-Q016",
+    "category": "conflict",
+    "query": "What chunk size does the shared pipeline use?",
+    "ideal_answer": "It depends on the step and strategy: step 1 documents fixed-size chunking at 512 tokens, while step 4's chunker is strategy-driven (language-aware separators, generic recursive fallback). A faithful answer attributes the number to the step.",
+    "ideal_context": "| `chunk_size` | 512 tokens | Balances context richness vs retrieval precision |\n| `chunk_overlap` | 50 tokens | Prevents information loss at chunk boundaries |",
+    "must_contain": [
+      "512 tokens",
+      "generic recursive"
+    ],
+    "source": "S1+S4",
+    "path": "data/docs/s1_early_steps_bundle.md + data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "MS-Q017",
+    "category": "conflict",
+    "query": "Is the retrieval score a cosine similarity or a distance?",
+    "ideal_answer": "Both, per step: step 1 computes numpy cosine similarity directly, while step 3 recovers Chroma scores as 1−distance via _collection.query. Do not merge — attribute the scoring to the step.",
+    "ideal_context": "**Implementation:** Pure numpy — no Qdrant, no Chroma, no external DB.",
+    "must_contain": [
+      "cosine similarity",
+      "1−distance"
+    ],
+    "source": "S1+S2",
+    "path": "data/docs/s1_early_steps_bundle.md + data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "MS-Q018",
+    "category": "conflict",
+    "query": "Is LangSmith tracing in step-4 scope or deferred?",
+    "ideal_answer": "The corpus says both things: the step-4 README lists observability tooling (LangSmith) among deferred non-goals, while the cost-ladder pillar row records 'LangSmith tracing planned' (✓ partial, deferrals #8/#9). A faithful answer surfaces both statements.",
+    "ideal_context": "**Non-goals (tracked, deferred):** safety suite (scope/leakage/toxicity) + injection defense,\nprompt optimization, LLM fine-tuning/DPO, CI/CD automation, observability tooling (LangSmith),",
+    "must_contain": [
+      "observability tooling (LangSmith)",
+      "LangSmith tracing planned"
+    ],
+    "source": "S5+S4",
+    "path": "data/docs/s5_docs_bundle.md + data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S1-Q046",
+    "category": "cite",
+    "query": "Why does step 1 avoid an external vector database for retrieval?",
+    "ideal_answer": "Step 1's vector store is pure numpy — no Qdrant, no Chroma, no external DB — an in-memory store over numpy arrays. It is the simplest possible design with no server, so the later framework choices are changes, not requirements.",
+    "ideal_context": "**Implementation:** Pure numpy — no Qdrant, no Chroma, no external DB.",
+    "must_contain": [
+      "Pure numpy",
+      "no Qdrant, no Chroma"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q047",
+    "category": "cite",
+    "query": "Why does the step-1 chunker overlap its windows?",
+    "ideal_answer": "Fixed-size chunking runs at chunk_size 512 tokens with chunk_overlap 50 tokens; the overlap prevents information loss at chunk boundaries, balancing context richness against retrieval precision.",
+    "ideal_context": "| `chunk_size` | 512 tokens | Balances context richness vs retrieval precision |\n| `chunk_overlap` | 50 tokens | Prevents information loss at chunk boundaries |",
+    "must_contain": [
+      "512 tokens",
+      "50 tokens"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q048",
+    "category": "cite",
+    "query": "What is the exact refusal the step-1 generator emits when the context lacks the answer?",
+    "ideal_answer": "The generator answers based ONLY on the provided context; if the context doesn't contain the answer, it says 'I don't have enough information to answer this question.'",
+    "ideal_context": "You are a helpful assistant. Answer the question based ONLY on the\nprovided context. If the context doesn't contain the answer, say\n\"I don't have enough information to answer this question.\"",
+    "must_contain": [
+      "based ONLY on the",
+      "I don't have enough information to answer this question."
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q049",
+    "category": "cite",
+    "query": "What is the reasoning behind the step-1 generator's temperature?",
+    "ideal_answer": "max_tokens 1024 leaves room for the context in the prompt; temperature 0.1 keeps creativity low for factual answers; top_p 0.9 focuses on the most probable tokens.",
+    "ideal_context": "| `max_tokens` | 1024 | Leave room for context in prompt |\n| `temperature` | 0.1 | Low creativity for factual answers |\n| `top_p` | 0.9 | Focus on most probable tokens |",
+    "must_contain": [
+      "1024",
+      "0.1",
+      "0.9"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q050",
+    "category": "cite",
+    "query": "What does the step-2 evaluator's 'Context Recall ≥ 0.7' target actually require?",
+    "ideal_answer": "The target is ≥ 0.7: 70% of the gold answer's key points should be covered by the retrieved chunks.",
+    "ideal_context": "**Target:** ≥ 0.7 (70% of gold answer points should be in retrieved chunks)",
+    "must_contain": [
+      "**Target:** ≥ 0.7",
+      "gold answer points"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q051",
+    "category": "cite",
+    "query": "Why was gpt-oss-120b chosen as the eval judge?",
+    "ideal_answer": "openai/gpt-oss-120b is the only freely-accessible model verified on the Groq account, so the step-2 DeepEval suite uses it as the judge.",
+    "ideal_context": "**Judge: Groq (free tier).** The suite uses `openai/gpt-oss-120b` — the only freely-accessible model verified on this Groq account. The free tier is TPM-limited (~8000 tokens/min), so judge calls are serialized through a shared async semaphore (`JUDGE_MAX_CONCURRENT`, default `1`) and 429s are retried (up to 10×) sleeping the exact retry-after seconds parsed from the error message.",
+    "must_contain": [
+      "openai/gpt-oss-120b",
+      "only freely-accessible model verified"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q052",
+    "category": "cite",
+    "query": "How many easy, medium, and hard questions does the step-2 golden set aim for?",
+    "ideal_answer": "20–30 Q&A pairs: 10 easy (direct fact lookup), 10 medium (requires understanding), and 5–10 hard (multi-hop reasoning, cross-document).",
+    "ideal_context": "**Target:** 20-30 pairs covering:\n- 10 easy (direct fact lookup)\n- 10 medium (requires understanding)\n- 5-10 hard (multi-hop reasoning, cross-document)",
+    "must_contain": [
+      "10 easy",
+      "10 medium",
+      "5-10 hard"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q053",
+    "category": "cite",
+    "query": "What do the trace timings show about chunking and embedding at step 2?",
+    "ideal_answer": "The LangSmith trace example shows the chunker turning 4 files into 60 chunks (0.12s), then embedding 1 query into a 1024-dim vector.",
+    "ideal_context": "│ Input: \"What is RAG?\"                           │\n│                                                 │\n│ Steps:                                          │\n│ 1. Chunker: 4 files → 60 chunks                │",
+    "must_contain": [
+      "4 files → 60 chunks",
+      "1024-dim vector"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q054",
+    "category": "cite",
+    "query": "Can an approved prompt version be promoted again or edited?",
+    "ideal_answer": "No: the lifecycle is DRAFT → TESTING → APPROVED → RETIRED, forward only; a retired prompt is terminal (cannot be promoted) and approved templates are immutable.",
+    "ideal_context": "- `DRAFT → TESTING → APPROVED → RETIRED` (forward only)",
+    "must_contain": [
+      "DRAFT → TESTING → APPROVED → RETIRED",
+      "forward only"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q055",
+    "category": "cite",
+    "query": "Which local embedder does step 1 use, and why no API?",
+    "ideal_answer": "Step 1 converts text chunks into dense vector representations — 768-dimensional vectors via BAAI/bge-base-en-v1.5, run locally through fastembed (local ONNX, no API needed).",
+    "ideal_context": "**Purpose:** Convert text chunks into dense vector representations (768-dimensional).",
+    "must_contain": [
+      "768-dimensional",
+      "dense vector representations"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q056",
+    "category": "degrade",
+    "query": "What does the step-2 judge wrapper do when Groq returns HTTP 429?",
+    "ideal_answer": "429s are retried up to 10x, sleeping the exact retry-after seconds parsed from the error message, so rate-limit responses don't fail the eval run.",
+    "ideal_context": "**Judge: Groq (free tier).** The suite uses `openai/gpt-oss-120b` — the only freely-accessible model verified on this Groq account. The free tier is TPM-limited (~8000 tokens/min), so judge calls are serialized through a shared async semaphore (`JUDGE_MAX_CONCURRENT`, default `1`) and 429s are retried (up to 10×) sleeping the exact retry-after seconds parsed from the error message.",
+    "must_contain": [
+      "429s are retried"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q057",
+    "category": "degrade",
+    "query": "What shared mechanism limits concurrent judge calls on the Groq free tier, and what is its default?",
+    "ideal_answer": "Judge calls are serialized through a shared async semaphore — JUDGE_MAX_CONCURRENT, default 1 — because the free tier is TPM-limited to about 8000 tokens/min.",
+    "ideal_context": "**Judge: Groq (free tier).** The suite uses `openai/gpt-oss-120b` — the only freely-accessible model verified on this Groq account. The free tier is TPM-limited (~8000 tokens/min), so judge calls are serialized through a shared async semaphore (`JUDGE_MAX_CONCURRENT`, default `1`) and 429s are retried (up to 10×) sleeping the exact retry-after seconds parsed from the error message.",
+    "must_contain": [
+      "8000 tokens/min",
+      "JUDGE_MAX_CONCURRENT"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q058",
+    "category": "abstain",
+    "query": "What does the step-1 stack cost per month in dollars?",
+    "ideal_answer": "Not derivable from the corpus: step 1's cost table records each component as free (embeddings local, vector store local, LLM 30 RPM free tier) but no monthly dollar figure is given — do not invent a budget.",
+    "ideal_context": "| **Embeddings** | fastembed `bge-base-en-v1.5` | Free (local) | No API needed, 768-dim, CPU |\n| **Vector Store** | numpy cosine similarity | Free (local) | Simplest possible, no server |\n| **LLM** | Groq `llama-3.3-70b-versatile` | Free (30 RPM) | 200-350 tok/s, 70B quality |",
+    "must_contain": [
+      "Free (local)",
+      "Free (30 RPM)"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q059",
+    "category": "cite",
+    "query": "What does step 1's component cost table list for embeddings, the vector store, and the LLM?",
+    "ideal_answer": "Embeddings: fastembed bge-base-en-v1.5, free (local), 768-dim CPU, no API. Vector store: numpy cosine similarity, free (local), no server. LLM: Groq llama-3.3-70b-versatile, free (30 RPM), 200–350 tok/s 70B quality.",
+    "ideal_context": "| **Embeddings** | fastembed `bge-base-en-v1.5` | Free (local) | No API needed, 768-dim, CPU |\n| **Vector Store** | numpy cosine similarity | Free (local) | Simplest possible, no server |\n| **LLM** | Groq `llama-3.3-70b-versatile` | Free (30 RPM) | 200-350 tok/s, 70B quality |",
+    "must_contain": [
+      "bge-base-en-v1.5",
+      "numpy cosine similarity",
+      "llama-3.3-70b-versatile",
+      "30 RPM"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q060",
+    "category": "cite",
+    "query": "What steps happen inside step 1's ask(question, top_k=3) flow?",
+    "ideal_answer": "ask(question, top_k=3) embeds the question, retrieves the top-k chunks, generates an answer with that context, and returns the answer plus citations.",
+    "ideal_context": "ask(question, top_k=3)\n    → embed question\n    → retrieve top-k chunks\n    → generate answer with context\n    → return answer + citations",
+    "must_contain": [
+      "ask(question, top_k=3)",
+      "retrieve top-k chunks",
+      "return answer + citations"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q061",
+    "category": "cite",
+    "query": "How many LangSmith traces are free per month, and is that enough?",
+    "ideal_answer": "LangSmith offers 5,000 traces/month free — 'More than enough for learning.'",
+    "ideal_context": "**Free tier:** LangSmith offers 5,000 traces/month free. More than enough for learning.",
+    "must_contain": [
+      "5,000 traces/month free"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q062",
+    "category": "cite",
+    "query": "What does each step-2 chat-log entry record, and where do the logs live?",
+    "ideal_answer": "Every user/assistant exchange appends to data/chat_logs/chat_log_<YYYY_MM_DD>.jsonl — JSONL objects with timestamp, user_message, agent_message, prompt_key, config, and num_sources; durable, local, gitignored, and independent of LangSmith.",
+    "ideal_context": "- Every user/assistant exchange is appended to `data/chat_logs/chat_log_<YYYY_MM_DD>.jsonl` (JSONL objects: `{timestamp, user_message, agent_message, prompt_key, config, num_sources}`) — a durable, local conversation log that does **not** depend on LangSmith. Gitignored (`data/chat_logs/*.jsonl`).",
+    "must_contain": [
+      "timestamp, user_message, agent_message",
+      "prompt_key",
+      "num_sources"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q063",
+    "category": "misroute",
+    "query": "Which vector database powers step 1's retrieval?",
+    "ideal_answer": "None — step 1's vector store is pure numpy, with no Qdrant, no Chroma, and no external DB. A router keying on 'vector DB' or 'Faiss' must not land on the step-4 deep dive or the framework bundle for this question.",
+    "ideal_context": "**Implementation:** Pure numpy — no Qdrant, no Chroma, no external DB.",
+    "must_contain": [
+      "Pure numpy",
+      "no Qdrant, no Chroma"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q064",
+    "category": "misroute",
+    "query": "How many free-tier requests per minute does Groq allow for the step-1 generation model?",
+    "ideal_answer": "30 RPM — recorded in the step-1 cost table for llama-3.3-70b-versatile. A router keying on 'rate limit' should not jump to step-7's rate-limiting guardrail: the 30 RPM figure is the step-1 free tier.",
+    "ideal_context": "| **LLM** | Groq `llama-3.3-70b-versatile` | Free (30 RPM) | 200-350 tok/s, 70B quality |",
+    "must_contain": [
+      "Free (30 RPM)",
+      "llama-3.3-70b-versatile"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q065",
+    "category": "conflict",
+    "query": "Where do the 768-dim and 1024-dim figures in the early steps come from?",
+    "ideal_answer": "Both appear, and the answer must attribute each: step 1's bge-base-en-v1.5 embeddings are 768-dimensional, while the step-2 trace example shows '1 query → 1024-dim vector' and the step-2/3 stack names qwen3-embed. Surface both sides; never merge them.",
+    "ideal_context": "│ 2. Embedder: 1 query → 1024-dim vector           │",
+    "must_contain": [
+      "1024-dim vector",
+      "768-dim"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S1-Q066",
+    "category": "abstain",
+    "query": "Does the corpus record any measured latency for the step-1 pipeline?",
+    "ideal_answer": "No: only example run-log fields exist (latency_ms 1200 appears in a sample entry); no measured or expected production latency for the step-1 pipeline is recorded — do not invent one.",
+    "ideal_context": "    \"output\": \"Gradient descent is...\",\n    \"latency_ms\": 1200,",
+    "must_contain": [
+      "latency_ms"
+    ],
+    "source": "S1",
+    "path": "data/docs/s1_early_steps_bundle.md"
+  },
+  {
+    "id": "S2-Q038",
+    "category": "cite",
+    "query": "Why are score changes attributable when comparing step 2 and step 3?",
+    "ideal_answer": "Step 3's north star is same data, same model, same metrics as step 2 — the only difference is the framework, so score changes are attributable.",
+    "ideal_context": "- 🎯 **North star:** same data, same model, same metrics as Step 2 ⇒ the **only** difference is\n  the framework, so score changes are attributable.",
+    "must_contain": [
+      "same data, same model, same metrics",
+      "score changes are attributable"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q039",
+    "category": "cite",
+    "query": "What is the second retrieval stage in the step-3 pipeline?",
+    "ideal_answer": "A cross-encoder 2nd stage, ms-marco-MiniLM-L-6-v2, re-sorts candidates to top_n after retrieval.",
+    "ideal_context": "Reranker.rerank(question, candidates)       (cross-encoder 2nd stage)\n   │                                            ms-marco-MiniLM-L-6-v2, re-sort → top_n",
+    "must_contain": [
+      "cross-encoder 2nd stage",
+      "ms-marco-MiniLM-L-6-v2",
+      "re-sort → top_n"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q040",
+    "category": "cite",
+    "query": "Which retrieval techniques does step 3 explicitly defer to step 4?",
+    "ideal_answer": "Hybrid dense+sparse (BM25), RRF fusion, and multi-source routing are out of scope for step 3 and deferred to step 4.",
+    "ideal_context": "- ❌ **Out of scope (deferred to Step 4):** hybrid dense+sparse (BM25), RRF fusion, multi-source\n  routing.",
+    "must_contain": [
+      "hybrid dense+sparse (BM25)",
+      "RRF fusion",
+      "multi-source"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q041",
+    "category": "cite",
+    "query": "Why does the retriever read Chroma's private query API?",
+    "ideal_answer": "The public similarity_search hides scores, so scores are recovered via Chroma's internal _collection.query as 1−distance, keeping the step-2 {text, metadata, score} shape.",
+    "ideal_context": "   │                                         (scores recovered via _collection.query, 1−distance)",
+    "must_contain": [
+      "_collection.query",
+      "1−distance"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q042",
+    "category": "cite",
+    "query": "What does the supervisor agent do with a question in step 6?",
+    "ideal_answer": "The supervisor agent analyzes the question and decides which agents to use — researcher, fact-checker, summarizer.",
+    "ideal_context": "│              SUPERVISOR AGENT                    │\n│                                                  │\n│  Analyzes question → decides which agents to use  │",
+    "must_contain": [
+      "SUPERVISOR AGENT",
+      "decides which agents to use"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q043",
+    "category": "cite",
+    "query": "What are the exact grade thresholds in the step-5 graph?",
+    "ideal_answer": "score ≥ 0.7 → pass; score ≥ 0.4 → soft retry (rewrite); score < 0.4 → hard retry (re-retrieve).",
+    "ideal_context": "                ├── (score ≥ 0.7) ──→ generate ──→ END   │ │\n                │                                        │ │\n                ├── (score ≥ 0.4) ──→ rewrite ──────────┘ │\n                │     (soft retry)                        │\n                │                                        │\n                └── (score < 0.4) ──→ rewrite ───────────┘\n                      (hard retry)",
+    "must_contain": [
+      "score ≥ 0.7",
+      "score ≥ 0.4",
+      "score < 0.4"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q044",
+    "category": "cite",
+    "query": "Which fields does the step-5 RAGState carry?",
+    "ideal_answer": "RAGState is a TypedDict with question, context, answer, grade, and retry_count.",
+    "ideal_context": "class RAGState(TypedDict):\n    question: str\n    context: list[dict]\n    answer: str\n    grade: float\n    retry_count: int",
+    "must_contain": [
+      "RAGState",
+      "question",
+      "context",
+      "grade",
+      "retry_count"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q045",
+    "category": "cite",
+    "query": "What are the inputs and outputs of the step-6 fact-checker?",
+    "ideal_answer": "The fact-checker validates claims in chunks — inputs are the context and the answer draft; the output is validated claims, which the summarizer turns into the final cited answer.",
+    "ideal_context": "| Fact-checker | Validate claims in chunks | Context + answer draft | Validated claims |\n| Summarizer | Create final answer | Validated findings | Cited answer |",
+    "must_contain": [
+      "Validate claims in chunks",
+      "Validated claims",
+      "Cited answer"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q046",
+    "category": "cite",
+    "query": "How does get_for_node() find the right prompt?",
+    "ideal_answer": "Prompts are keyed by the composite prompt_id + node_name + source_type, so each graph node gets its own versioned prompt looked up via get_for_node().",
+    "ideal_context": "#### Composite Key: `prompt_id + node_name + source_type`",
+    "must_contain": [
+      "prompt_id + node_name + source_type"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q047",
+    "category": "cite",
+    "query": "What comparability rule did step 3's embedder decision record?",
+    "ideal_answer": "The decision record says 'Same embedding as Step 2 (qwen3-embed, 1024-dim) — Apples-to-apples A/B': keeping the embedder makes comparisons fair and score changes attributable.",
+    "ideal_context": "| **Same embedding as Step 2** (qwen3-embed, 1024-dim) | Apples-to-apples A/B — not `HuggingFaceEmbeddings`/bge |",
+    "must_contain": [
+      "Apples-to-apples A/B",
+      "qwen3-embed, 1024-dim"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q048",
+    "category": "cite",
+    "query": "Which dimensions does the shared registry treat as key rather than as new code?",
+    "ideal_answer": "node_name and source_type are key dimensions, not new code — get_for_node() filters the shared store, and the class and lifecycle stay the same across steps.",
+    "ideal_context": "1. **`node_name` / `source_type` are key dimensions, not new code** — `get_for_node()` filters the shared store; the class and lifecycle stay the same across all steps.\n2. **Per-node eval gates status** — the scorecard (rewrite 0.85, grade 0.72, generate 0.88) is Evidence recorded in the registry; only an *approved* node prompt is used at run time.",
+    "must_contain": [
+      "node_name",
+      "source_type",
+      "key dimensions, not new code"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q049",
+    "category": "cite",
+    "query": "What does it mean that approved registry versions are immutable?",
+    "ideal_answer": "Approved versions are immutable — a better grade-node prompt supersedes its version; you never edit in place.",
+    "ideal_context": "1. **`node_name` / `source_type` are key dimensions, not new code** — `get_for_node()` filters the shared store; the class and lifecycle stay the same across all steps.\n2. **Per-node eval gates status** — the scorecard (rewrite 0.85, grade 0.72, generate 0.88) is Evidence recorded in the registry; only an *approved* node prompt is used at run time.\n3. **Status = data** — `staging` → `approved` transitions and rollbacks are `registry.json` data ops; never a code redeploy.\n4. **Approved versions immutable** — a better grade-node prompt supersedes its version; never edit in place.",
+    "must_contain": [
+      "Approved versions immutable",
+      "never edit in place"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q050",
+    "category": "cite",
+    "query": "What scorecard does the per-node eval gate record as evidence?",
+    "ideal_answer": "The scorecard records per-node scores — rewrite 0.85, grade 0.72, generate 0.88 — as Evidence in the registry; only an approved node prompt is used at run time.",
+    "ideal_context": "2. **Per-node eval gates status** — the scorecard (rewrite 0.85, grade 0.72, generate 0.88) is Evidence recorded in the registry; only an *approved* node prompt is used at run time.",
+    "must_contain": [
+      "rewrite 0.85",
+      "grade 0.72",
+      "generate 0.88"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q051",
+    "category": "cite",
+    "query": "What does the step-6 LangSmith section ask about agent metrics?",
+    "ideal_answer": "Its exam question asks what metrics LangSmith captures for each agent and how you use them to optimize.",
+    "ideal_context": "**Exam Question 🎓:** What metrics does LangSmith capture for each agent? How do you use them to optimize?",
+    "must_contain": [
+      "What metrics does LangSmith capture for each agent"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q052",
+    "category": "cite",
+    "query": "Why is tracing essential in step 6?",
+    "ideal_answer": "Without tracing you can't tell which agent is failing — the docs call LangSmith essential for debugging the agent team.",
+    "ideal_context": "> LangSmith is essential here. Without tracing, you can't tell which agent is failing.",
+    "must_contain": [
+      "Without tracing"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q053",
+    "category": "misroute",
+    "query": "Where does the corpus document how the step-3 retriever keeps the {text, metadata, score} shape?",
+    "ideal_answer": "In the framework bundle: scores are recovered through Chroma's internal _collection.query as 1−distance because similarity_search hides them. A router keying on 'Chroma' or 'vector store' could wrongly land on the step-4 deep dive instead.",
+    "ideal_context": "   │                                         (scores recovered via _collection.query, 1−distance)",
+    "must_contain": [
+      "_collection.query",
+      "1−distance"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q054",
+    "category": "abstain",
+    "query": "What is the average number of retries the step-5 graph performs in production?",
+    "ideal_answer": "Not recorded: the corpus specifies only the hard cap (give up after 3 retries); no observed or expected average retry count is documented — do not invent one.",
+    "ideal_context": "def grade_decision(state: RAGState) -> str:\n    if state[\"grade\"] >= 0.7:\n        return \"pass\"\n    elif state[\"retry_count\"] < 3:\n        return \"retry\"\n    else:\n        return \"pass\"  # Give up after 3 retries",
+    "must_contain": [
+      "retry_count",
+      "Give up after 3 retries"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q055",
+    "category": "abstain",
+    "query": "How much does step 6's LangSmith tracing cost per month?",
+    "ideal_answer": "Not recorded in the framework bundle: the LangSmith tracing section documents observability and debugging value, but no paid pricing appears anywhere in the corpus — only the free 5,000 traces/month note exists.",
+    "ideal_context": "### 3. LangSmith Tracing",
+    "must_contain": [
+      "LangSmith Tracing"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q056",
+    "category": "degrade",
+    "query": "How does the step-5 graph behave when the grade keeps returning 'retry'?",
+    "ideal_answer": "grade_decision keeps returning 'retry' while retry_count < 3, then gives up and returns 'pass' after 3 retries — a hard cap so a bad retrieval can't loop forever.",
+    "ideal_context": "def grade_decision(state: RAGState) -> str:\n    if state[\"grade\"] >= 0.7:\n        return \"pass\"\n    elif state[\"retry_count\"] < 3:\n        return \"retry\"\n    else:\n        return \"pass\"  # Give up after 3 retries",
+    "must_contain": [
+      "retry_count",
+      "Give up after 3 retries"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S2-Q057",
+    "category": "degrade",
+    "query": "A retrieval keeps grading below 0.4. What does the step-5 graph do next?",
+    "ideal_answer": "score < 0.4 means a hard retry (re-retrieve); a score of 0.4–0.7 is a soft retry that rewrites the query; repeated failures hit the 3-retry cap.",
+    "ideal_context": "                ├── (score ≥ 0.7) ──→ generate ──→ END   │ │\n                │                                        │ │\n                ├── (score ≥ 0.4) ──→ rewrite ──────────┘ │\n                │     (soft retry)                        │\n                │                                        │\n                └── (score < 0.4) ──→ rewrite ───────────┘\n                      (hard retry)",
+    "must_contain": [
+      "score ≥ 0.4",
+      "score < 0.4"
+    ],
+    "source": "S2",
+    "path": "data/docs/s2_frameworks_bundle.md"
+  },
+  {
+    "id": "S3-Q039",
+    "category": "cite",
+    "query": "What does the step-7 input-guardrail layer run to stop prompt injection?",
+    "ideal_answer": "Input guardrails run detect_injection() and reject with 'Potential prompt injection' before the query reaches the RAG pipeline.",
+    "ideal_context": "        # Prompt injection detection\n        if self.detect_injection(query):\n            return False, \"Potential prompt injection\"",
+    "must_contain": [
+      "detect_injection",
+      "Potential prompt injection"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q040",
+    "category": "cite",
+    "query": "Which four checks sit in the step-7 input-guardrails box?",
+    "ideal_answer": "Prompt injection detection, off-topic filtering, rate limiting, and input length validation.",
+    "ideal_context": "│  - Prompt injection detection                    │\n│  - Off-topic filtering                           │\n│  - Rate limiting                                 │\n│  - Input length validation                       │",
+    "must_contain": [
+      "Prompt injection detection",
+      "Off-topic filtering",
+      "Rate limiting",
+      "Input length validation"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q041",
+    "category": "cite",
+    "query": "What avg_score and cost_per_query does the V3 candidate record?",
+    "ideal_answer": "V3 records avg_score 0.87 at cost_per_query 0.003, versus production's 0.82 at 0.002.",
+    "ideal_context": "v3_metrics = {\"avg_score\": 0.87, \"cost_per_query\": 0.003}",
+    "must_contain": [
+      "0.87",
+      "0.003",
+      "0.82",
+      "0.002"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q042",
+    "category": "cite",
+    "query": "What was the documented A/B trade-off for V3?",
+    "ideal_answer": "The decision line reads: 'V3 is 6% better but 50% more expensive.'",
+    "ideal_context": "# Decision: V3 is 6% better but 50% more expensive",
+    "must_contain": [
+      "6% better",
+      "50% more expensive"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q043",
+    "category": "cite",
+    "query": "Which hosting option suits prototypes and costs nothing?",
+    "ideal_answer": "Streamlit Cloud — Low complexity, Free, best for prototypes.",
+    "ideal_context": "| Streamlit Cloud | Low | Free | Prototypes |",
+    "must_contain": [
+      "Streamlit Cloud",
+      "Free",
+      "Prototypes"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q044",
+    "category": "cite",
+    "query": "Can a shadow candidate prompt ship before live evidence promotes it?",
+    "ideal_answer": "No — shadow candidates (e.g. RAG_ANSWER_V3_shadow) never ship until live evidence promotes them; registration is staging until evidence decides.",
+    "ideal_context": "1. **Candidates live in the registry** — `RAG_ANSWER_V3_shadow` is a `staging`/`draft` record in the **same shared store** built in Step 1; it never ships until live evidence promotes it.",
+    "must_contain": [
+      "never ships until live evidence promotes it",
+      "staging"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q045",
+    "category": "cite",
+    "query": "Under which PEFT technique does step 8 introduce QLoRA?",
+    "ideal_answer": "QLoRA sits under PEFT re-parameterization — LoRA A/B/alpha/rank, INT8 → NF4 quantization, with double quantization and paged optimizers.",
+    "ideal_context": "5. **PEFT (re-parameterization)** — LoRA (A/B, alpha, rank), quantization (INT8 → NF4),\n   **QLoRA** (double quantization, paged optimizers); multi-tenant LoRA serving.",
+    "must_contain": [
+      "re-parameterization",
+      "QLoRA",
+      "double quantization"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q046",
+    "category": "cite",
+    "query": "How does the step-8 roadmap continue after DPO alignment?",
+    "ideal_answer": "SFT (LoRA/QLoRA) → DPO alignment → Guardrails → Red team → Patch → loop.",
+    "ideal_context": "SFT (LoRA/QLoRA) ──► DPO alignment ──► Guardrails ──► Red team ──► Patch ──► (loop)",
+    "must_contain": [
+      "DPO alignment",
+      "Guardrails",
+      "Red team",
+      "Patch"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q047",
+    "category": "cite",
+    "query": "Where does step 7 simulate total Groq unavailability?",
+    "ideal_answer": "Exercise 6 under 'Test failure modes — what happens when Groq is down?' — the deployment/guardrails step, not a framework bundle.",
+    "ideal_context": "6. **Test failure modes** — what happens when Groq is down?",
+    "must_contain": [
+      "Test failure modes",
+      "Groq is down"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q048",
+    "category": "cite",
+    "query": "What do step-7 pillars 4–6 cover?",
+    "ideal_answer": "Monitoring (tracking production metrics), cost management (token budgeting and rate limiting), and failure handling (graceful degradation when things break).",
+    "ideal_context": "4. **Monitoring** — Tracking production metrics\n5. **Cost management** — Token budgeting and rate limiting\n6. **Failure handling** — Graceful degradation when things break",
+    "must_contain": [
+      "Monitoring",
+      "Cost management",
+      "Graceful degradation when things break"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q049",
+    "category": "cite",
+    "query": "What is the default daily budget in the step-7 CostTracker?",
+    "ideal_answer": "The CostTracker example defaults daily_budget to 5.0 (float).",
+    "ideal_context": "class CostTracker:\n    def __init__(self, daily_budget: float = 5.0):",
+    "must_contain": [
+      "daily_budget"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q050",
+    "category": "cite",
+    "query": "Can a $5 daily budget afford the V2 upgrade at 2000 queries/day?",
+    "ideal_answer": "Yes — the exam answer works it out: V1 costs $3.60/day, V2 costs $4.20/day, both within the $5 budget.",
+    "ideal_context": "**Exam Question 🎓:** V2 is 17% more expensive but 6% better. Your daily budget is $5. You get 2000 queries/day. Can you afford to switch? (Answer: V1 costs $3.60/day, V2 costs $4.20/day. Yes, within budget.)",
+    "must_contain": [
+      "V1 costs $3.60/day",
+      "V2 costs $4.20/day",
+      "within budget"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q051",
+    "category": "cite",
+    "query": "What does the step-7 monitoring dashboard example show for rejected queries?",
+    "ideal_answer": "It breaks rejected queries down by guardrail — the example shows 'Off-topic: 45' as one of the counts.",
+    "ideal_context": "│  - Off-topic: 45                                 │",
+    "must_contain": [
+      "Off-topic: 45"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q052",
+    "category": "cite",
+    "query": "Which step-7 file tracks token budgeting and cost-per-version?",
+    "ideal_answer": "cost_tracker.py — marked NEW for token budgeting + cost-per-version.",
+    "ideal_context": "│   ├── cost_tracker.py         ⭐ NEW: Token budgeting + cost-per-version",
+    "must_contain": [
+      "cost_tracker.py",
+      "Token budgeting",
+      "cost-per-version"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q053",
+    "category": "misroute",
+    "query": "What must be true before a shadow candidate prompt ships?",
+    "ideal_answer": "Only evidence drives promotion — a shadow/A-B candidate ships once its scores beat the incumbent (compare_versions). The tempting target for this answer is the prompt-registry docs, but the shipping rule is step-7 deployment policy.",
+    "ideal_context": "3. **Evidence drives promotion** — promote only when shadow/A-B scores beat the incumbent; the registry records those scores per version (`compare_versions()`).",
+    "must_contain": [
+      "Evidence drives promotion",
+      "compare_versions"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q054",
+    "category": "abstain",
+    "query": "What is the correct fix for the step-7 latency-spike exam question?",
+    "ideal_answer": "Not recorded: the exam poses the latency-spike case but the corpus records no answer or investigation plan — do not invent one.",
+    "ideal_context": "4. **Monitoring:** Latency spikes from 1s to 5s. What do you investigate?",
+    "must_contain": [
+      "Latency spikes from 1s to 5s"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q055",
+    "category": "abstain",
+    "query": "What production daily budget does step 7 enforce as policy?",
+    "ideal_answer": "No enforced policy figure is recorded — the corpus shows the CostTracker example default (daily_budget 5.0) in code, not a production configuration.",
+    "ideal_context": "class CostTracker:\n    def __init__(self, daily_budget: float = 5.0):",
+    "must_contain": [
+      "daily_budget"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q056",
+    "category": "degrade",
+    "query": "What does step 7's failure-handling pillar aim for when components break?",
+    "ideal_answer": "Graceful degradation — the architecture's pillar 6 is 'Failure handling — Graceful degradation when things break'.",
+    "ideal_context": "4. **Monitoring** — Tracking production metrics\n5. **Cost management** — Token budgeting and rate limiting\n6. **Failure handling** — Graceful degradation when things break",
+    "must_contain": [
+      "Graceful degradation when things break"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q057",
+    "category": "degrade",
+    "query": "How does step 7 surface degraded conditions in the monitoring dashboard?",
+    "ideal_answer": "The dashboard tracks error rates — the architecture lists Error rates among the tracked production metrics — so degraded days are visible rather than silent.",
+    "ideal_context": "│  - Error rates                                   │",
+    "must_contain": [
+      "Error rates"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q058",
+    "category": "degrade",
+    "query": "What failure mode does the 'Groq is down' exercise stress-test?",
+    "ideal_answer": "A provider outage — the exercise verifies behavior under total Groq failure: graceful degradation and fallback rather than a hard pipeline crash.",
+    "ideal_context": "6. **Test failure modes** — what happens when Groq is down?",
+    "must_contain": [
+      "Groq is down",
+      "Test failure modes"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S4-Q038",
+    "category": "cite",
+    "query": "Why is step 4's configuration centralized instead of scattered?",
+    "ideal_answer": "Every downstream module needs the same three inputs (API keys, model names, storage paths); the config hub centralizes them in config.py — one import instead of ten, env overrides read once at startup, a single ensure_dirs() creates the runtime folders, and accessors (generate_llm(), judge_llm(), embed_model_name()) expose behavior.",
+    "ideal_context": "**A:** Every downstream module (embeddings, retriever, pipeline, evals) needs the same three\ninputs: API keys, model names, storage paths. Centralizing in `config.py` means one import\ninstead of ten; env overrides read once at startup; a single `ensure_dirs()` creates all\nruntime folders. Accessors (`generate_llm()`, `judge_llm()`, `embed_model_name()`) expose\n*behavior*, so later tasks consume them without touching secrets.",
+    "must_contain": [
+      "ensure_dirs",
+      "generate_llm",
+      "judge_llm"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q039",
+    "category": "cite",
+    "query": "What happens when code_split receives an unknown language?",
+    "ideal_answer": "The facade forwards text, chunk_size, overlap plus language for code; code_split maps the alias to language-aware separators, falling back to generic recursive for unknown languages.",
+    "ideal_context": "**A:** The facade special-cases `semantic`; the `else` branch forwards `text, chunk_size, overlap`\nplus `language` for `code` (`chunker.py:52-53`), matching its docstring. `code_split` maps the alias\nto language-aware separators, falling back to generic recursive for unknown languages.",
+    "must_contain": [
+      "language-aware separators",
+      "generic recursive"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q040",
+    "category": "cite",
+    "query": "Which three gates keep the Ragas path cost-free in CI?",
+    "ideal_answer": "The judge is built lazily, tests inject a fake evaluator, and the integration marker (-m integration) separates them; testset.py is never imported by the rest of the eval package.",
+    "ideal_context": "**A:** Three gates: judge built lazily; injected fake evaluator in tests; integration marker\n`-m integration`. `testset.py` never imported by the rest of the eval package.",
+    "must_contain": [
+      "judge built lazily",
+      "fake evaluator",
+      "-m integration"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q041",
+    "category": "cite",
+    "query": "What does Faiss add over the mini-IVF teaching implementation?",
+    "ideal_answer": "Faiss adds SIMD PQ/IVF compression and HNSW over centroids with the same parameters — production-grade math; the deep lesson is separating the teaching implementation from the production slot-in.",
+    "ideal_context": "**A:** mini-IVF exactly scans probed buckets; Faiss adds SIMD PQ/IVF compression + HNSW over\ncentroids. Same parameters, production-grade math. Deep lesson: separate teaching impl from the\nproduction slot-in.",
+    "must_contain": [
+      "SIMD PQ/IVF compression",
+      "HNSW over"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q042",
+    "category": "cite",
+    "query": "Which wrapper lets Ragas reuse the step-4 judge, and why is it lazy?",
+    "ideal_answer": "LangchainLLMWrapper(judge_llm()), built lazily at measure time so constructing RagasBackend() never touches the network.",
+    "ideal_context": "- Ragas: `LangchainLLMWrapper(judge_llm())` — built **lazily at measure time** so constructing\n  `RagasBackend()` never touches the network.",
+    "must_contain": [
+      "LangchainLLMWrapper",
+      "lazily at measure time"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q043",
+    "category": "cite",
+    "query": "What does Ragas' answer_relevancy need that the DeepEval variant does not?",
+    "ideal_answer": "Ragas compares the answer and question in embedding space, which needs an embeddings adapter (the guard raises without one); DeepEval's variant is LLM-judged. The fix is an adapter, not deleting the metric.",
+    "ideal_context": "**A:** Ragas' relevancy compares answer↔question in **embedding space** (needs an embeddings\nadapter; guard raises). DeepEval's variant is LLM-judged.",
+    "must_contain": [
+      "embedding space",
+      "guard raises"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q044",
+    "category": "cite",
+    "query": "How wide are the regression gates' tolerances, and why?",
+    "ideal_answer": "About ±0.03 for the judge and ±20% for latency — tolerances must sit above measurement noise so gates don't fire on random variation.",
+    "ideal_context": "**Interviewer checks:** gate vs guardrail vs info; tolerances above measurement noise (~±0.03\njudge, ~±20% latency).",
+    "must_contain": [
+      "±0.03",
+      "±20% latency"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q045",
+    "category": "cite",
+    "query": "What does a cross-backend score gap indicate?",
+    "ideal_answer": "Backends can disagree on the same case — both wrap judge_llm() but latency, context-length effects, and generation randomness differ per framework; a cross-backend gap is a finding, not a bug.",
+    "ideal_context": "**A:** Both wrap `judge_llm()`. **They can disagree** — latency, context-length effects,\ngeneration randomness differ per framework even with the same endpoint. Cross-backend gap is a\nfindng, not a bug.",
+    "must_contain": [
+      "They can disagree",
+      "generation randomness differ per framework"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q046",
+    "category": "cite",
+    "query": "Which eval library does the deep-dive recommend for thresholding a single pipeline run?",
+    "ideal_answer": "For thresholding one eval run in a pipeline → DeepEval; the reach-for-which rule (Steps 5–7) also maps deep retrieval forensics → Ragas and golden generation → testset.py.",
+    "ideal_context": "### 9. When to reach for which (rule for Steps 5–7)\n1. Thresholding one eval run in a pipeline → **DeepEval**.\n2. Deep retrieval forensics / battery (20+ ragas metrics) → **Ragas** (deferred tail of #5).\n3. Generating new goldens from `data/` → `testset.py`; feed back into `golden.jsonl` (neutral",
+    "must_contain": [
+      "Deep retrieval forensics",
+      "testset.py"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q047",
+    "category": "cite",
+    "query": "What per-stage latency SLOs does the observability pillar set?",
+    "ideal_answer": "SLO_P95_MS=3000 for end-to-end latency and SLO_TTFT_P95_MS=1200 for time-to-first-token — Task 14's stage-split latency + TTFT.",
+    "ideal_context": "| 5 | **Observability / SLOs** | Task 14 — stage-split latency + TTFT (`SLO_P95_MS=3000`, `SLO_TTFT_P95_MS=1200`), reliability, cost projection | 🟡 SLOs in Step 4; LangSmith/drift deferred (#10/#15) |",
+    "must_contain": [
+      "SLO_P95_MS=3000",
+      "SLO_TTFT_P95_MS=1200"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q048",
+    "category": "cite",
+    "query": "How is the embedding dimension handled in step 4?",
+    "ideal_answer": "Observed, not declared: dim() returns None before the first embed and _coerce records it; there is no dimension=1024 constant, and mixed dims or drift raise ValueError.",
+    "ideal_context": "**A:** **Observed, not declared.** `dim()` returns None before the first embed; `_coerce` records\nit. No `dimension=1024` constant. Mixed dims or drift raise `ValueError`. The contract must\nsurvive a swapped model (e.g. a future 768-d entry).",
+    "must_contain": [
+      "Observed, not declared",
+      "dimension=1024"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q049",
+    "category": "cite",
+    "query": "Which safety items are in the step-4 slice, and what defers to step 7?",
+    "ideal_answer": "Minimal PII (eval_ops_pii.py) is in scope; the full suite — scope/leakage/toxicity/injection/red-team — defers to step 7 (#13/#19).",
+    "ideal_context": "| 8 | **Safety & guardrails** | minimal PII (`eval_ops_pii.py`); full suite (scope/leakage/toxicity/injection/red-team) → Step 7 (#13/#19) | 🟡 minimal now |",
+    "must_contain": [
+      "eval_ops_pii.py",
+      "minimal PII"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q050",
+    "category": "cite",
+    "query": "What does the gap-register review say about judge pinning?",
+    "ideal_answer": "The judge is pinned so drift is signal, not noise — and the gap register is reviewed at each task.",
+    "ideal_context": "(Task 14); judge pinned so drift is signal not noise. The gap register is reviewed at each task",
+    "must_contain": [
+      "judge pinned",
+      "drift is signal not noise"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q051",
+    "category": "cite",
+    "query": "Which pillar owns Groq→Gemini fallback and per-source where-filters?",
+    "ideal_answer": "The cost ladder / efficiency pillar 6 — Groq→Gemini fallback, per-source where filters (cheap routing), rerankers gated by eval, LangSmith tracing planned.",
+    "ideal_context": "| 6 | **Cost ladder / efficiency** | Groq→Gemini fallback; per-source `where` filters (cheap routing); rerankers gated by eval; LangSmith tracing planned | ✅ partial, deferrals #8/#9 |",
+    "must_contain": [
+      "Groq→Gemini fallback",
+      "per-source `where` filters"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q052",
+    "category": "misroute",
+    "query": "Where in the corpus are the concrete SLO latency values (3000 ms / 1200 ms) recorded?",
+    "ideal_answer": "In the step-4 deep dive — the BOM row names SLO_P95_MS=3000 and SLO_TTFT_P95_MS=1200. A router keying on 'SLO / observability' could land on the step-9 README (which only lists Task 14 as owner); the concrete values live in the S4 deep dive.",
+    "ideal_context": "| 5 | **Observability / SLOs** | Task 14 — stage-split latency + TTFT (`SLO_P95_MS=3000`, `SLO_TTFT_P95_MS=1200`), reliability, cost projection | 🟡 SLOs in Step 4; LangSmith/drift deferred (#10/#15) |",
+    "must_contain": [
+      "SLO_P95_MS=3000",
+      "SLO_TTFT_P95_MS=1200"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q053",
+    "category": "abstain",
+    "query": "What is the projected monthly cost of step 4's inference plane?",
+    "ideal_answer": "Not recorded: the cost-ladder pillar names levers (where-filters, fallback, rerankers) and lists cost projection as Task-14 scope, but no projected dollar amount appears in the corpus.",
+    "ideal_context": "| 6 | **Cost ladder / efficiency** | Groq→Gemini fallback; per-source `where` filters (cheap routing); rerankers gated by eval; LangSmith tracing planned | ✅ partial, deferrals #8/#9 |",
+    "must_contain": [
+      "Cost ladder",
+      "cost projection"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q054",
+    "category": "abstain",
+    "query": "What is the measured latency variance of step-4 eval runs?",
+    "ideal_answer": "Not recorded: ±20% is a designed tolerance on the regression harness, not a measurement of run-to-run variance; no measured variance appears in the corpus.",
+    "ideal_context": "**Interviewer checks:** gate vs guardrail vs info; tolerances above measurement noise (~±0.03\njudge, ~±20% latency).",
+    "must_contain": [
+      "±20% latency"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q055",
+    "category": "degrade",
+    "query": "A 400 or auth error hits the generate path. Should the pipeline fall through to Gemini?",
+    "ideal_answer": "No — the fallback is deliberately narrow: only rate-limit errors trigger retry-once-then-fallback; a 400 (malformed prompt) or auth failure won't succeed elsewhere, and falling through masks real bugs, so those propagate.",
+    "ideal_context": "correct. But a 400 (malformed prompt) or auth failure won't succeed elsewhere — falling through\nthere masks real bugs, so those propagate. `RATE_LIMIT_ERRORS` is a tuple because",
+    "must_contain": [
+      "those propagate",
+      "masks real bugs"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q056",
+    "category": "degrade",
+    "query": "What happens if the judge endpoint fails when the Ragas backend is first measured?",
+    "ideal_answer": "The network is touched at measure time when LangchainLLMWrapper is built lazily; a failing judge surfaces as an error at that call — constructing the backend alone never fails over the network.",
+    "ideal_context": "- Ragas: `LangchainLLMWrapper(judge_llm())` — built **lazily at measure time** so constructing\n  `RagasBackend()` never touches the network.",
+    "must_contain": [
+      "LangchainLLMWrapper",
+      "lazily at measure time"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q057",
+    "category": "cite",
+    "query": "What does the step-4 BOM say about LangSmith tracing?",
+    "ideal_answer": "LangSmith tracing is 'planned' in the cost-ladder row (pillar 6) — listed with deferrals #8/#9, not implemented in step 4.",
+    "ideal_context": "| 6 | **Cost ladder / efficiency** | Groq→Gemini fallback; per-source `where` filters (cheap routing); rerankers gated by eval; LangSmith tracing planned | ✅ partial, deferrals #8/#9 |",
+    "must_contain": [
+      "LangSmith tracing planned"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q058",
+    "category": "cite",
+    "query": "How does the regression harness report comparisons?",
+    "ideal_answer": "run_suite produces a snapshot; metric_registry carries direction/kind/tolerance; compare returns PASS(0)/FAIL(1)/REVIEW(2) — the harness is in step 4, CI automation deferred (#14).",
+    "ideal_context": "| 4 | **Regression & quality gates** | `eval/regression/` (Task 18) — `run_suite`→snapshot, `metric_registry` (direction/kind/tolerance), `compare`→PASS(0)/FAIL(1)/REVIEW(2) | 🟡 harness in Step 4, CI automation deferred (#14) |",
+    "must_contain": [
+      "run_suite",
+      "metric_registry",
+      "PASS(0)/FAIL(1)/REVIEW(2)"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S5-Q037",
+    "category": "cite",
+    "query": "Which file sets the default eval backend, and to what value?",
+    "ideal_answer": "eval/contracts/registry.py — get_backend('deepeval' | 'ragas') with DEFAULT_BACKEND = 'deepeval'.",
+    "ideal_context": "- **`get_backend(\"deepeval\" | \"ragas\")`** registry in `eval/contracts/registry.py`\n  (`DEFAULT_BACKEND = \"deepeval\"`).",
+    "must_contain": [
+      "get_backend",
+      "DEFAULT_BACKEND"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q038",
+    "category": "cite",
+    "query": "How does the corpus track the router-misroute deferral?",
+    "ideal_answer": "The non-goals list registers router misroute detection as a tracked deferral, pinned to GAP_REGISTER.md #24 for the query-processing eval; embedding-model version drift (#25) sits beside it.",
+    "ideal_context": "— plus **router misroute detection, embedding-model version drift, streaming-citation integrity,",
+    "must_contain": [
+      "router misroute detection",
+      "embedding-model version drift"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q039",
+    "category": "cite",
+    "query": "Where do the abstention gate and PII-minimal land in the step-9 module map?",
+    "ideal_answer": "Mod 5 'Guardrails' (pillar 8) — abstention gate + PII-minimal; Mod 7 demo surfaces the abstention/degraded/conflict states.",
+    "ideal_context": "| 5 | Guardrails | 8 | abstention gate + PII-minimal |",
+    "must_contain": [
+      "Guardrails",
+      "abstention gate"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q040",
+    "category": "cite",
+    "query": "What does the ux/product interface spec define, and what does it exclude in step 4?",
+    "ideal_answer": "Chat-log schema, batch citations after streamed text, and abstention/degraded/conflict states; no feedback capture in Step 4.",
+    "ideal_context": "| `ux` / `product` | **UX** | Chat-log schema, batch citations, abstention / degraded / conflict states; no feedback capture in Step 4/9. |",
+    "must_contain": [
+      "Chat-log schema",
+      "no feedback capture"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q041",
+    "category": "cite",
+    "query": "Which items are tracked as deferred non-goals in the step-4 README?",
+    "ideal_answer": "Safety suite (scope/leakage/toxicity) + injection defense, prompt optimization, LLM fine-tuning/DPO, CI/CD automation, observability tooling (LangSmith), semantic caching, data-freshness/re-indexing, human-feedback loop, access control/multi-tenancy — plus router misroute detection, embedding-model version drift, streaming-citation integrity, and eval-library version pinning.",
+    "ideal_context": "**Non-goals (tracked, deferred):** safety suite (scope/leakage/toxicity) + injection defense,\nprompt optimization, LLM fine-tuning/DPO, CI/CD automation, observability tooling (LangSmith),\nsemantic caching, data-freshness/re-indexing, human-feedback loop, access control/multi-tenancy\n— plus **router misroute detection, embedding-model version drift, streaming-citation integrity,\nand eval-library version pinning** (added from the second architecture-review pass). See",
+    "must_contain": [
+      "prompt optimization",
+      "CI/CD automation",
+      "semantic caching",
+      "human-feedback loop"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q042",
+    "category": "cite",
+    "query": "What constraint does the step-9 free stack place on the GitHub Actions gate?",
+    "ideal_answer": "The free stack specifies a GitHub Actions offline-only gate.",
+    "ideal_context": "offline-only gate. **Free-tier quotas are your pillar-6 budget** — the constraint is the lesson.",
+    "must_contain": [
+      "offline-only"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q043",
+    "category": "cite",
+    "query": "What strategy order does the step-4 router waterfall use?",
+    "ideal_answer": "Cheap strategies first — rules, then embedding similarity, elevating to the LLM classifier as needed.",
+    "ideal_context": "| **Routing: rules / embedding-sim / LLM waterfall** | Cheap strategies first, elevate to LLM classifier as needed; embedding-sim threshold ~0.45 from class (Task 06). |",
+    "must_contain": [
+      "Cheap strategies first",
+      "elevate to LLM classifier"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q044",
+    "category": "cite",
+    "query": "How does the step-4 prompt registry key prompts per source?",
+    "ideal_answer": "By the composite prompt_id + source_type + version — each source gets a tuned prompt via the shared PromptRegistry with a generic fallback.",
+    "ideal_context": "| **Composite prompt keys** (`prompt_id + source_type + version`) | Each source gets a tuned prompt via the shared PromptRegistry with a generic fallback; schema evolves, mechanism stays. |",
+    "must_contain": [
+      "prompt_id + source_type + version",
+      "generic fallback"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q045",
+    "category": "cite",
+    "query": "Which four source labels do the router tiers decide over?",
+    "ideal_answer": "text / web / pdf / db — the source tags the router's Rules/embedding/LLM tiers decide over.",
+    "ideal_context": "│  Rules/embedding/LLM: which source(s) to query?       │\n│  source tags: text / web / pdf / db                   │",
+    "must_contain": [
+      "Rules/embedding/LLM",
+      "text / web / pdf / db"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q046",
+    "category": "cite",
+    "query": "How does the step-4 README describe the component-eval backend seam?",
+    "ideal_answer": "As the eval plane — backed by a dual DeepEval+Ragas seam with component evals; the data plane and eval plane are implemented, the inference plane is the current build phase.",
+    "ideal_context": "> embeddings, vector store) and the **eval plane** (dual DeepEval+Ragas seam, component evals)",
+    "must_contain": [
+      "eval plane",
+      "DeepEval+Ragas seam"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q047",
+    "category": "cite",
+    "query": "Which primary→fallback generation rule do the step-9 docs record?",
+    "ideal_answer": "Groq free tier primary → Gemini fallback.",
+    "ideal_context": "Local-first engine (`uv` + `src/llmops/`) · Groq free tier primary → Gemini fallback ·",
+    "must_contain": [
+      "Groq free tier primary → Gemini fallback"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q048",
+    "category": "cite",
+    "query": "What does the abstention gate return when confidence falls below the gate?",
+    "ideal_answer": "A refusal_string when confidence is below the gate (Task 10).",
+    "ideal_context": "│  → refusal_string if confidence below gate (Task 10) │",
+    "must_contain": [
+      "refusal_string"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q049",
+    "category": "cite",
+    "query": "What does the security role row list as the step-4 safety slice?",
+    "ideal_answer": "PII minimal (Task 14), abstention gate (Task 10), per-source circuit breaker (Task 11), and citation allowlist (Task 10); step-7 items (#19/#22/#23) stay registered OUT.",
+    "ideal_context": "| `security` / `guardrails` | **Security & guardrails** | Track safety scope. Step-4 slice: PII minimal (Task 14), abstention gate (Task 10), per-source circuit breaker (Task 11), citation allowlist (Task 10). Step-7 items (#19/#22/#23) stay registered OUT. |",
+    "must_contain": [
+      "PII minimal (Task 14)",
+      "per-source circuit breaker (Task 11)",
+      "citation allowlist (Task 10)"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q050",
+    "category": "cite",
+    "query": "What does the SRE role record as step-4 metrics-to-compute?",
+    "ideal_answer": "Latency (TTFT, P95/P99), derived cost, and reliability per Task 14, plus an early-error diagnostics side-channel and per-source health hooks; alerting is Step 7.",
+    "ideal_context": "| `ops` / `sre` / `observability` | **SRE** (observability) | Latency (TTFT, P95/P99), derived cost, reliability per Task 14; early-error diagnostics side-channel + per-source health hooks. metrics-to-compute are Step 4; alerting is Step 7. |",
+    "must_contain": [
+      "TTFT, P95/P99",
+      "early-error diagnostics",
+      "alerting is Step 7"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q051",
+    "category": "misroute",
+    "query": "Why is CI automation listed as a deferred item in step 4?",
+    "ideal_answer": "The lifecycle pillar row says registry rollback works now but CI automation defers to Step 7. A router keying on 'CI/gates' could wrongly land on the regression-gates row — the deferral statement is the lifecycle row.",
+    "ideal_context": "| 7 | Lifecycle (CI/CD, deploy, rollback) | registry rollback now; CI *automation* deferred to Step 7 | 🟡 |",
+    "must_contain": [
+      "automation* deferred to Step 7"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q052",
+    "category": "abstain",
+    "query": "What feedback-capture mechanism does step 4 provide for chat responses?",
+    "ideal_answer": "None — the interface spec explicitly records 'no feedback capture' in Step 4; do not invent a rating or feedback loop.",
+    "ideal_context": "| `ux` / `product` | **UX** | Chat-log schema, batch citations, abstention / degraded / conflict states; no feedback capture in Step 4/9. |",
+    "must_contain": [
+      "no feedback capture"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q053",
+    "category": "abstain",
+    "query": "Which alert thresholds does step 4 define for P95 latency?",
+    "ideal_answer": "None recorded: step 4 computes metrics (TTFT, P95/P99) but alerting is explicitly Step 7 — alert thresholds are not in the corpus.",
+    "ideal_context": "| `ops` / `sre` / `observability` | **SRE** (observability) | Latency (TTFT, P95/P99), derived cost, reliability per Task 14; early-error diagnostics side-channel + per-source health hooks. metrics-to-compute are Step 4; alerting is Step 7. |",
+    "must_contain": [
+      "alerting is Step 7"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q054",
+    "category": "degrade",
+    "query": "A single source keeps failing. Which step-4 mechanism contains the damage?",
+    "ideal_answer": "The per-source circuit breaker (Task 11) isolates the failing source — the security role row lists it as part of the step-4 slice.",
+    "ideal_context": "| `security` / `guardrails` | **Security & guardrails** | Track safety scope. Step-4 slice: PII minimal (Task 14), abstention gate (Task 10), per-source circuit breaker (Task 11), citation allowlist (Task 10). Step-7 items (#19/#22/#23) stay registered OUT. |",
+    "must_contain": [
+      "per-source circuit breaker (Task 11)"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q055",
+    "category": "degrade",
+    "query": "When the embedding-sim tier is unavailable, which router tiers take over?",
+    "ideal_answer": "The router is a rules / embedding-sim / LLM waterfall with cheap strategies first; with embedding-sim unavailable it falls back to the cheaper rules tier or elevates to the LLM classifier as needed.",
+    "ideal_context": "| **Routing: rules / embedding-sim / LLM waterfall** | Cheap strategies first, elevate to LLM classifier as needed; embedding-sim threshold ~0.45 from class (Task 06). |",
+    "must_contain": [
+      "Cheap strategies first",
+      "elevate to LLM classifier"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q056",
+    "category": "degrade",
+    "query": "What does the step-9 model line do when the primary generation provider is unavailable?",
+    "ideal_answer": "Falls back to Gemini — 'Groq free tier primary → Gemini fallback' is the recorded generation rule.",
+    "ideal_context": "Local-first engine (`uv` + `src/llmops/`) · Groq free tier primary → Gemini fallback ·",
+    "must_contain": [
+      "Gemini fallback"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  }
+]
