@@ -48,7 +48,7 @@
 ## Verify
 
 ```
-uv run jupyter nbconvert --to notebook --execute jupyter_notebook/02_judge_wiring.ipynb
+uv run jupyter nbconvert --to notebook --execute jupyter_notebook/NB-002_judge_wiring.ipynb
 uv run pytest tests/test_judge.py tests/test_registry.py -q
 ```
 
