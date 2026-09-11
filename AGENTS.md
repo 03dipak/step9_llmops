@@ -39,6 +39,12 @@ checks. Agents never write code into `src/`, `tests/`, `jupyter_notebook/`, or C
 - **Verifiable claims only** — a line number, test count, or path is checked before it is
   written or cited.
 - **External reviews are checkpoints, not verdicts.**
+- **External advice is a standing gap-finding channel** — solicited or
+  unsolicited advice (AI advisors, reviewers, other projects) is logged,
+  verified against the repo, and its genuinely-new gaps registered as
+  decisions even when the advice itself is declined (D20;
+  `doc/learn/03_external_advice_protocol.md`). Evidence: D5 and D11 both came
+  from rejected external proposals.
 - **Updates but no scope creep** — genuinely-new gaps get registered as decisions (IN / deferred).
 - **Keep internal links green.**
 - **Manager-facing docs stay code-free; task docs carry the spec.**
