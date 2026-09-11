@@ -63,11 +63,28 @@ class JudgeResponse(BaseModel):
     winner ∈ {"A", "B"} — step4 probe notes show "winner": "B"; no step4 source
     states a wider domain, so step9 binds it narrow. score_a/score_b = ints 0-10
     (step9 design choice, F-2: probe notes sample 7/9, no step4 source states the
-    bound; the judge prompt must instruct this range). reasoning = non-empty str."""
+    bound; the judge prompt must instruct this range). reasoning = non-empty str.
+    D27: Field constraints enforce 0-10 + non-empty; model_validator enforces
+    score↔winner consistency (incoherent replies fail validation → salvage path)."""
     winner: Literal["A", "B"]
-    score_a: int  # 0-10
-    score_b: int  # 0-10
-    reasoning: str  # non-empty
+    score_a: int = Field(..., ge=0, le=10)       # D27: enforced, not just commented
+    score_b: int = Field(..., ge=0, le=10)       # D27: enforced, not just commented
+    reasoning: str = Field(..., min_length=1)     # D27: enforced, not just commented
+
+    @model_validator(mode="after")
+    def _check_score_winner_consistency(self) -> "JudgeResponse":
+        """D27: incoherent score↔winner → ValidationError → salvage (T-02-4b).
+        A tie score (score_a == score_b) is allowed; the Literal winner must
+        still be chosen."""
+        if self.score_a > self.score_b and self.winner != "A":
+            raise ValueError(
+                f"score_a ({self.score_a}) > score_b ({self.score_b}) but winner='{self.winner}'"
+            )
+        if self.score_b > self.score_a and self.winner != "B":
+            raise ValueError(
+                f"score_b ({self.score_b}) > score_a ({self.score_a}) but winner='{self.winner}'"
+            )
+        return self
 
 class _JudgeThrottle:
     """Process-global lock + ≥3.33s spacing (~18 req/min; step4 observed 429 at ~20 req/min).
@@ -241,6 +258,7 @@ Cases derive from task 02 exit criteria + step4 evidence (judge.py:28-30, NB-000
 | T-02-3a | throttle: first call immediate | 1 call, fresh throttle (fake clock 0) | no sleep on first call (`_last_send=0` → elapsed > spacing) | first-call semantics |
 | T-02-3b | throttle: exception doesn't compress window | invoke raises → invoke raises again (fake clock; both within 3.33s of each other) | second call still waits ≥ spacing from `_last_send`; `_last_send` unchanged by failures (mirror step4 `judge.py:50-56`) | no retry storms on failure |
 | T-02-4 | JSON prompt → parse → schema OK | valid JSON response mock | `winner` ∈ `{"A","B"}` (D25 domain, verified in probe notes sample); `score_a`/`score_b` integers 0-10 (step9 design choice — the judge prompt must instruct this range; NB-000 probe notes show sample scores 7/9 consistent with 0-10 but no explicit step4 source states the bound); `reasoning` non-empty; pydantic validates | "JSON reply parsed and schema-validated" (exit criterion 1) |
+| T-02-4b | Incoherent score↔winner → validation error | mock: `{"winner":"A","reasoning":"B is better","score_a":3,"score_b":8}` (B higher but A declared winner) | `ValidationError` on construction (D27 model_validator); feeds salvage path (T-02-5/6) — 1 re-prompt attempt | model_validator catches evaluator incoherence (D27) |
 | T-02-5 | Malformed JSON → salvage → re-prompt → OK | first response = fenced ` ```json...``` `, second = valid JSON | fence stripped, second attempt returns valid result; 2 invocations to the mock | salvage path works |
 | T-02-5a | JSON-mode fallback: endpoint ignores `response_format` | mock llm that never receives `response_format={"type":"json_object"}` (or raises on it); returns plain fenced JSON | falls back to fence-strip + `json.loads` and returns valid result **without salvage** (no error, no 2nd invoke) | primary fallback path, not just salvage (claim 9, D25) |
 | T-02-6 | Malformed JSON → salvage exhausted → `JudgeError` | 2 consecutive invalid responses | `JudgeError` raised; assert `str(err)` matches NO secret pattern (reuse T-02-11's regex set: `sk-`, `gsk_`, `xai-`, `LLM_BASE_URL`/`LLM_API_KEY` names, endpoint URL substring) **and** contains the allowed content: `prompt_id` (or key) + reason ("invalid JSON after salvage") (D26 splits allow/deny) | typed error, no secret leak; allowed content still present |
@@ -263,7 +281,7 @@ Cases derive from task 02 exit criteria + step4 evidence (judge.py:28-30, NB-000
 |---|---|---|
 | **security** | No keys in registry.json templates; `judge_llm()` reads env at runtime only; salvage `JudgeError` message checked against key/endpoint leakage; `.env` never committed (T-02-11 covers) | ✅ closed 2026-09-11 (reviewer pass; no gaps found beyond already-registered) |
 | **ops** | Throttle spacing ≤18 req/min (D10 latency budget not affected — judge is offline/gate-only, not in P95); `JudgeError` typed for structured logging; **registry single-writer assumption accepted for Mod 2** — parallel-CI writes to `registry.json` are structurally OUT (Mod 6 lifecycle), not a Mod-2 gap | ✅ closed 2026-09-11 (D25) |
-| **tester** | 21 cases: factory (T-02-1/2, T-02-2 parametrized ×4), throttle+exceptions (T-02-3/3a/3b), JSON+schema (T-02-4), salvage (T-02-5/5a/6), registry lifecycle (T-02-7/7a/8/9/9b), provenance (T-02-10 + source-level import assert), env separation (T-02-10a), hygiene (T-02-11/12, type hints mandated), notebook (T-02-13/13a/14) — all offline except T-02-13/13a/14 which are `integration`-marked | ✅ closed 2026-09-11 (D25 + D26 gate) |
+| **tester** | 22 cases: factory (T-02-1/2, T-02-2 parametrized ×4), throttle+exceptions (T-02-3/3a/3b), JSON+schema (T-02-4/4b), salvage (T-02-5/5a/6), registry lifecycle (T-02-7/7a/8/9/9b), provenance (T-02-10 + source-level import assert), env separation (T-02-10a), hygiene (T-02-11/12, type hints mandated), notebook (T-02-13/13a/14) — all offline except T-02-13/13a/14 which are `integration`-marked | ✅ closed 2026-09-11 (D25 + D26 gate; D27 adds T-02-4b) |
 | **planner** | No module-order deviation; NB-002 notebook-first (D2) → promote → tests; config is a package, not a single file (00b LLD projection + INTERVIEW_Q&A package diagram) | ✅ closed 2026-09-11 (reviewer pass) |
 | **ux** | n/a — no user-facing interface in Mod 2 | ⏭️ |
 
