@@ -70,3 +70,7 @@ jupyter_notebook/NB-01_anchor_check.ipynb # scripted anchor check (your code)
 | **planner** | Depends on 00b (package + `uv run` for NB-01) — execution order 00→00b→01→02 confirmed | ✅ |
 
 **Bottom line:** author order = corpus plan → per-source batches → edge categories (misroute/conflict/abstain/degrade) → run T-01-3/5/7 before you call anything done. Ask `tester` then `review`.
+
+> **How-to companion:** the exact authoring procedure + the reference Python logic (anchor
+> extraction, the T-01 suite, failure modes) lives in `doc/design/01_authoring_recipe.md` —
+> the learner ports that logic into NB-01.
