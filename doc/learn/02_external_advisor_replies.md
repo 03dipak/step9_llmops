@@ -29,7 +29,7 @@ them, and what was adopted vs declined (registered as D17–D19).
 > The *scripts* don't automate judgment — nothing in the doc claims they do —
 > but the judgment *can* be exercised by an LLM acting as a careful reader
 > (that's exactly how these goldens were authored; the FAQ says so at
-> `01_golden_dataset_authoring.md:366-368`). What's non-negotiable is not
+> `01_golden_dataset_authoring.md:377-382`). What's non-negotiable is not
 > "no LLM" but "no ungrounded rows": every excerpt and fragment is asserted
 > verbatim against the corpus by the assembler/verifier.
 >
@@ -84,7 +84,7 @@ them, and what was adopted vs declined (registered as D17–D19).
 |---|---|---|
 | Doc = method manual, not data source | **Adopted** → guide §1 Scope-boundary note | `01_golden_dataset_authoring.md` §1 |
 | Examples need verbatim grounding | **Confirmed as already-true** | lines cited above, `grep -n` verified |
-| Judgment layer "not automatable" | **Refined**: scripts don't automate it; LLM *can* do it carefully | FAQ `:366-368` |
+| Judgment layer "not automatable" | **Refined**: scripts don't automate it; LLM *can* do it carefully | FAQ `:377-382` |
 | D16 lane (authoring = `data`/`tester`; learner = NB-01) | **Confirmed** | `doc/DECISIONS.md:26` |
 | toy-corpus sandbox for practice | **Adopted** → registered D19 | `doc/DECISIONS.md` D19 |
 | "Draft 3–5 rows into committed goldens" | **Declined** — closed set + lane | D19, D16 |
@@ -98,3 +98,34 @@ them, and what was adopted vs declined (registered as D17–D19).
 - **D19** — Committed golden set is closed at 139/67/107; new rows only via a
   registered gap; practice goldens live in a toy sandbox outside
   `eval/goldens/`.
+
+---
+
+## Round 2 — claude.ai's reply to our reply (2026-09-11)
+
+> **claude.ai (verbatim):**
+> "That's a fair correction, and it's worth being precise about what changes.
+> What I got wrong: I wrote 'the judgment layer isn't automatable' in a way
+> that implied it requires a human specifically. That's not what the doc says.
+> ... the accurate version is 'not mechanizable by the dumb layer-2/3 scripts,
+> but performable by a careful reader, human or LLM, as long as every claim it
+> writes gets checked against disk before it counts.' ... The three-layer
+> separation (author → assemble/assert → independently verify) is what makes
+> an LLM-authored golden trustworthy despite LLMs being unreliable narrators
+> of their own certainty — the scripts are the check on the LLM, not a
+> replacement for something only humans can do. The other three points —
+> method-general, schema/contract-specific to this repo, and the D16 role
+> boundary — stand as stated."
+
+**Verdict (repo-verified):** fully conceded and consistent with the guide.
+Two factual claims checked:
+- The FAQ quote it attributes (`guide:377-382`) is accurate: "No. The
+  authoring is you reading and writing; the scripts only extract and assert."
+- "313 rows" = 139 + 67 + 107 ✓ (verified against the three golden files).
+
+**Our outcome:** adoption is already complete — the guide's §1 scope note and
+the three-layer framing in §1 already say exactly what claude.ai converged
+on. No further doc change needed; this round only re-verified and closed the
+loop. If a future round proposes changing the guide's FAQ from "Do I need an
+LLM? No." to a softer claim, the D17 record is the evidence that the current
+phrasing was already the agreed one.
