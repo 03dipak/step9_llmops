@@ -10,13 +10,17 @@
 
 ```
 src/llmops/config/
-├── __init__.py            # package marker, re-exports judge_llm
-└── judge.py               # judge_llm() factory + throttled_invoke + JSON salvage
-                           # NOTE: env.py, paths.py, providers.py, models.py land with
-                           # their owning modules (Mod 4 for generation ladder);
-                           # config/ is a package, not a single file (step4 parity: config.py
-                           # was one file; step9 splits for the three-model split:
-                           # generation / judge / embedding — INTERVIEW_Q&A.md)
+├── __init__.py            # facade: re-exports judge_llm, generate_llm (stable public API)
+├── env.py                 # env loading/validation — cross-cutting, lands when first needed
+├── paths.py               # path helpers — cross-cutting, lands when first needed
+├── judge.py               # D6: judge_llm() factory + throttled_invoke + JSON salvage (Mod 2)
+├── generation.py          # Groq→Gemini ladder (LLMProvider, retry-once-then-fallback) — Mod 4
+└── embedding.py           # embed model — lands with its owning module
+                           # NAMING AXIS (D22): one module per MODEL ROLE (generation /
+                           # judge / embedding — INTERVIEW_Q&A.md) + cross-cutting concerns
+                           # (env, paths). NEVER vendor-named files (no groq.py / gemini.py:
+                           # the ladder is ONE unit — role axis, single naming scheme).
+                           # Step4 parity: config.py was one file; step9 = package.
 
 src/llmops/prompts/
 ├── __init__.py            # package marker, re-exports registry helpers
@@ -143,8 +147,10 @@ the two never mix (D6, step4 `config.py:131-215`).
 
 ### Out of scope for this module
 
-- Generation ladder (`LLMProvider`, `config/providers.py`, `config/models.py`) — Mod 4
-- `config/env.py`, `config/paths.py` — land with their owning module
+- Generation ladder (`LLMProvider`, `config/generation.py`) — Mod 4 (role-named, D22;
+  the ladder is ONE module — not `groq.py`/`gemini.py`; naming axis is model role)
+- `config/env.py`, `config/paths.py` — cross-cutting; land with their owning module (D22:
+  named by concern, not by vendor or model)
 - DeepEval / Ragas wrappers — Mod 3 (task 03); they wrap `judge_llm()`
 - Prompt template *files* beyond the registry slice — Mod 6 (lifecycle)
 - Provider→model resolution in registry — stays in config, never registry (task 02:36-37)

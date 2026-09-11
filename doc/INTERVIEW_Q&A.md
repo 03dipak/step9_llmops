@@ -76,9 +76,11 @@ scope, here's the register" is the answer they want.
 **Q. Why config as a package, not a `config.py` file?**
 **A:** The file crossed the one-concern threshold: env loading/validation, paths, provider
 factory with fallback, judge wiring, embed naming, model defaults — six concerns in 232
-lines. Package split (`env.py`, `paths.py`, `providers.py`, `models.py`) with a facade
-`__init__` keeps `from llmops.config import generate_llm` stable forever. Same public API as
-step4 — the cross-references stay honest.
+lines. Package split with a facade `__init__` keeps `from llmops.config import generate_llm`
+stable forever. Naming axis (D22): one module per **model role** — `judge.py`, `generation.py`,
+`embedding.py` — plus cross-cutting `env.py`/`paths.py`; never vendor-named files
+(`groq.py`/`gemini.py` would split one ladder into two and mix role+provider axes). Same
+public API as step4 — the cross-references stay honest.
 
 **Q. What's your testing strategy for an LLM system?**
 **A:** Three layers. L1: deterministic golden rules (e.g., "must cite source", verbatim

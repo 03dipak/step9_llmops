@@ -28,7 +28,9 @@ step9_llmops/
 
 ### Out of scope for this module
 
-- The config package (`src/llmops/config/{env,paths,providers,models}.py`) — lands with Mod 2
+- The config package (`src/llmops/config/{env,paths,judge,generation,embedding}.py`) — landing
+  order per D22 naming axis (model role: generation / judge / embedding, plus env/paths
+  cross-cutting concerns; never vendor-named files). `judge.py` lands with Mod 2
   per `doc/task/02` (`config/judge.py` promotion). **NB-000 (closing Mod 00b) is a probe
   only** — it asserts 3 live calls and carries no package code; nothing is promoted from it.
 - LangChain/loader code, notebooks, eval — later modules.
