@@ -295,6 +295,56 @@ python3 tools/goldens/t01_verify.py \
 python3 jupyter_notebook/NB-01_anchor_check.py
 ```
 
+### Recovery path — "the session died; re-derive everything"
+
+Every line below is **committed in this repo** — no `/tmp`, no agent session,
+no external state. If the golden files, the teaching docs, or your memory of
+the method are ever lost, this is the order to rebuild from nothing:
+
+```bash
+# 1. Regenerate all three golden files (idempotent: output is byte-identical
+#    to the committed versions — an empty `git diff` after re-running proves it)
+python3 tools/goldens/batch3.py
+python3 tools/goldens/batch_routing.py
+python3 tools/goldens/batch_correctness.py
+
+# 2. Prove nothing drifted: diff against the committed JSON
+git diff --stat eval/goldens/
+
+# 3. Independent verification, each file with its band + the other two for
+#    cross-file id/query uniqueness (expect `FAILURES: NONE`, exit 0)
+python3 tools/goldens/t01_verify.py eval/goldens/retriever_goldens.json 120 160 \
+  eval/goldens/query_processing_goldens.json eval/goldens/correctness_goldens.json
+python3 tools/goldens/t01_verify.py eval/goldens/query_processing_goldens.json 60 75 \
+  eval/goldens/retriever_goldens.json eval/goldens/correctness_goldens.json
+python3 tools/goldens/t01_verify.py eval/goldens/correctness_goldens.json 100 120 \
+  eval/goldens/retriever_goldens.json eval/goldens/query_processing_goldens.json
+
+# 4. Re-learn the method (why, not just what): this guide (§1–§7)
+#    Spec contract:          doc/task/01_data_testset.md
+#    Shared test matrix:     doc/design/01_lld_tests.md
+#    Authoring recipe:       doc/design/01_authoring_recipe.md
+```
+
+**What each asset is for, so future-you picks the right one:**
+
+| Asset | Purpose |
+|---|---|
+| `tools/goldens/batch3.py` | assemble retriever goldens (139) |
+| `tools/goldens/batch_routing.py` | assemble routing goldens (67) |
+| `tools/goldens/batch_correctness.py` | assemble correctness goldens (107) |
+| `tools/goldens/t01_verify.py` | independent verifier (T-01-1..7 + cross-file) |
+| `jupyter_notebook/NB-01_anchor_check.py` | notebook mirror — all three at once + T-01-9 sample |
+| `doc/learn/01_golden_dataset_authoring.md` | this guide — the method |
+| `doc/task/01_data_testset.md` | the binding contract (counts, schema, T-01) |
+| `doc/design/01_lld_tests.md` | shared T-01 matrix + per-file counts |
+| `doc/design/01_authoring_recipe.md` | the authoring procedure + failure modes |
+
+**The one rule that makes recovery work:** the scripts are *idempotent* and
+*portable* — re-running them from any cwd produces byte-identical output. If a
+future edit ever makes a script *not* idempotent, that is a bug: stop and fix
+it before trusting the recovered state.
+
 ---
 
 ## 9. Your checklist before you call a golden set "done"
