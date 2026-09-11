@@ -23,4 +23,5 @@ module. Agents read these files during `review`; they never create or edit them.
 Every file above: markdown only, no API keys or tokens, committed as review evidence.
 
 Heavy artifacts (probe outputs, golden anchors) stay with their notebooks in
-`jupyter_notebook/` or `/tmp/opencode/` — never here.
+`jupyter_notebook/` — never here. Reproducible golden-authoring scripts live in
+`tools/goldens/` (in-repo, portable).

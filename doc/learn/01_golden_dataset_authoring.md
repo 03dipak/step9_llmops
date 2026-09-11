@@ -173,9 +173,13 @@ that class of error **crash loudly** instead.
 ### Step 3 — Run, fix, repeat until `FAILURES: NONE`
 
 ```bash
-python3 /tmp/opencode/batch_correctness.py   # assembles the JSON
-python3 /tmp/opencode/t01_verify.py <gold.json> <lo> <hi> [other_goldens...]
+python3 tools/goldens/batch_correctness.py   # assembles the JSON
+python3 tools/goldens/t01_verify.py <gold.json> <lo> <hi> [other_goldens...]
 ```
+
+These live **inside the repo** at `tools/goldens/` (portable: they locate the
+repo root by walking up to `pyproject.toml`, so they work from any cwd). Run
+them with `python3`, no dependencies.
 
 The verifier is **separate** from the assembler — that separation is what makes
 the result trustworthy. A buggy assembler cannot certify its own output.
@@ -231,7 +235,7 @@ file is literally 107 `R(...)` calls in a Python list.
 
 ## 6. The verifier — what it re-checks, and why separately
 
-`/tmp/opencode/t01_verify.py` (and its notebook mirror
+`tools/goldens/t01_verify.py` (and its notebook mirror
 `jupyter_notebook/NB-01_anchor_check.py`) re-opens the **finished JSON** and
 re-checks every claim against disk:
 
@@ -275,13 +279,14 @@ mystery step. Every check names the row, the field, and the expected vs got.
 ## 8. Reproduce this repo's goldens, from scratch
 
 ```bash
+# run from the repo root (or anywhere — the scripts walk up to pyproject.toml)
 # 1. three assemblers (they are idempotent: re-running rewrites the same file)
-python3 /tmp/opencode/batch3.py            # retriever_goldens.json   (139)
-python3 /tmp/opencode/batch_routing.py     # query_processing_goldens.json (67)
-python3 /tmp/opencode/batch_correctness.py # correctness_goldens.json (107)
+python3 tools/goldens/batch3.py            # retriever_goldens.json   (139)
+python3 tools/goldens/batch_routing.py     # query_processing_goldens.json (67)
+python3 tools/goldens/batch_correctness.py # correctness_goldens.json (107)
 
 # 2. the independent verifier, each file with its band + the other two for cross-file checks
-python3 /tmp/opencode/t01_verify.py \
+python3 tools/goldens/t01_verify.py \
   eval/goldens/retriever_goldens.json 120 160 \
   eval/goldens/query_processing_goldens.json eval/goldens/correctness_goldens.json
 # …repeat for the other two… expect `FAILURES: NONE` each time
@@ -328,7 +333,12 @@ by source and category, with a one-line comment per group. Never generate JSON
 by string-concatenation; let the script `json.dump` with `indent=2` so diffs
 stay readable.
 
-**Q: Why are the scripts in `/tmp/opencode/` and not in the repo?** — Lane
-rules: agents only commit markdown + `eval/goldens/*.json` into this repo.
-Scripts are build tooling; keep them reproducible (the three assemblers are
-idempotent and their contents are documented here in §5).
+**Q: Where do the authoring scripts live?** — In the repo: `tools/goldens/`
+(`batch3.py`, `batch_routing.py`, `batch_correctness.py`, `t01_verify.py`).
+They were kept outside the repo while the golden set was being built; once the
+recipe stabilized they were moved in — with hardcoded paths replaced by a
+repo-root walk — so a lost agent session never loses the build tooling. They
+are *build/verification tooling for eval data*, not application code: they
+never touch `src/`, and running them only ever rewrites `eval/goldens/*.json`
+to byte-identical content (idempotent). The three assemblers are documented
+here in §5.
