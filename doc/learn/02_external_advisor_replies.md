@@ -256,3 +256,68 @@ Mod 6 lifecycle (documented), not a gap to mitigate.
 1 was a D2-lane question (content, not gap). All adoptions folded into the
 LLD; the engagement remains closed (D17 protocol — checkpoints, not
 back-and-forth).
+
+---
+
+## Round 4 — lifecycle / registry-approval scope (perplexity.ai + follow-up, 2026-09-11)
+
+> **External AIs (perplexity.ai, then a composed Gemini/Microsoft-style
+> follow-up):** two answers on the Mod 2 registry lifecycle. The first framed
+> Mod 2 as *mechanism-only*: approve/rollback are status flips, `record_eval`
+> is a data hook, full golden-eval is Tasks 12–13. The follow-up agreed and
+> added the *production* view: "tests must run first — evaluate draft vs
+> goldens → `record_eval` → threshold → approve," plus a pairwise-judge eval
+> spec (accuracy, position-bias, score calibration).
+
+**Protocol applied:** D17/D20 checkpoint. Claims verified against
+`doc/design/02_lld_tests.md` (LLD), `doc/task/0{1,2,3,6}*.md`,
+`doc/SPRINT_PLAN.md`, and `doc/GAP_REGISTER.md`. Five role-relevant facts
+pulled from the two answers and checked:
+
+1. **"Mod 2 register tests are offline/deterministic mechanism tests"** —
+   CONFIRMED. LLD tester row: "all offline except T-02-13/13a/14
+   (integration-marked)." ✅
+2. **"`approve`/`rollback` never parse/compare/sort versions"** — CONFIRMED.
+   `02_lld_tests.md:166`: they flip the status flag only. ✅
+3. **"`eval_scores` + `record_eval` are data hooks, not a Mod-2 decision
+   gate"** — CONFIRMED. T-02-7a uses dummy `accuracy=0.82, latency_ms=400`. ✅
+4. **"Position-bias swap (A/B + B/A) needed; score calibration needed;
+   approval needs a threshold policy"** — genuinely NEW, absent from every
+   repo doc (grep: position/swap/calibrat/threshold → zero hits except
+   unrelated D10/D5/D3 mentions). This is the D20 standing channel working
+   a second time (first: D5/D11).
+5. **Proposed key naming `judge_pairwise_v1/v2`** — DECLINED. Conflicts with
+   the registered D25 naming (`judge_system_generic_1.0.0`, underscores,
+   semver, no V-prefix).
+
+**Adopted → registered:**
+
+- **D28** — Position-bias mitigation (A/B + B/A both orders) for the pairwise
+  judge. Mentor-ruled an *evaluation-time* manipulation, not a golden-schema
+  change (Mod 1 golden schema stays frozen). Folds into **Mod 3**
+  methodology.
+- **D29** — Score calibration (flawless→8-10, hallucinated→≤4) as a Mod-3
+  **guardrail** metric (soft REVIEW, not a hard gate). Schema-neutral.
+- **D30** — Approval-decision policy layer (`MIN_ACCURACY_THRESHOLD` +
+  latency-in-budget) lives in **Mod 6** promote flow, NOT in Mod-2's
+  threshold-free `approve()`. This is precisely the step between
+  `record_eval` (evidence) and `approve` (decision) the LLD deliberately
+  separates (`02_lld_tests.md:166`).
+- **D31** — Mod 2 ships ONE approved judge prompt (`judge_system_generic_1.0.0`);
+  v1.1.0 stays a draft freelab only for the mechanism demo on a scratch copy.
+  Folds the follow-up's "production = evaluate-first" concern into its real
+  home (Mod 3/6), keeping Mod 2 scoped to mechanism proof.
+- **D32** — "One prompt checks retriever & all": the single approved judge
+  prompt is the only judge across every source/category; per-category golden
+  subsets feed separate `metric_registry` rows. Confirms the follow-up's
+  "same dataset, same pairs, same harness, different prompt" is a Mod-3
+  comparison, not a Mod-2 multi-prompt scope.
+
+**Mapping correction (honest, mentor):** earlier drafts of this round aimed
+the gaps at "Task 12/13" (step4's numbering). Verified: step9's eval
+lifecycle lives in **Mod 3** (regression gates) and **Mod 6** (lifecycle);
+the three gaps were re-anchored to those modules before registering.
+
+**Overall:** 1 claim confirmed, 3 genuinely-new gaps adopted as D28–D30 and
+folded (D31/D32 scope), 1 naming proposal declined. All grounded in the
+actual task map; no golden-schema reopened, no dependency reorder.

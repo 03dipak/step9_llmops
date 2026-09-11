@@ -157,10 +157,10 @@ Mirrors step4 (`prompts/prompt_registry.json`).
 `prompt_id = judge_system`, `source_type = generic` (the judge isn't source-routed —
 **registry selection is unambiguous because Mod 2 holds exactly one
 `(prompt_id, source_type)` pair** — step 2 of the data flow picks the approved
-version of that single pair). Two versions are authored, e.g.
-`v1.0.0` → approve, author `v1.1.0` → approve (v1 retired), then **rollback to
-v1.0.0 is exercised and recorded** (exit criterion 3). Multi-key selection is OUT
-of scope (Mod 6 lifecycle owns it).
+version of that single pair). **One approved version ships** (`judge_system_generic_1.0.0`,
+D31); a second authored draft (v1.1.0) exercises approve/rollback as a **mechanism demo on a
+scratch copy**, proven by offline tests (T-02-7/8 use synthetic registry dicts). Multi-key
+selection is OUT of scope (Mod 6 lifecycle owns it).
 
 **Version semantics**: `version` is a semver string (`<major>.<minor>.<patch>`) **by
 convention only**; `approve`/`rollback` never parse, compare, or sort it — they flip the

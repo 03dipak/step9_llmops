@@ -21,7 +21,8 @@
    + JSON-mode with pydantic-schema validation and a salvage path on malformed JSON.
 3. **Prompt registry slice** — `src/llmops/prompts/registry.json` mirroring step4's
    composite key `prompt_id + source_type + version` with **approve / rollback lifecycle**
-   (two versions of one system prompt, one rolled back, recorded).
+   (one approved judge prompt `judge_system_generic_1.0.0` ships; a second draft version
+   exercises the approve/rollback mechanism offline and in a notebook demo — D31).
 4. `tests/test_judge.py` + `tests/test_registry.py` — offline: registry approve/rollback;
    judge factory builds from env without secrets; malformed-JSON salvage.
 
@@ -42,7 +43,7 @@
 
 - [ ] NB-002 runs end-to-end; judge JSON reply parsed and schema-validated (asserts in notebook)
 - [ ] Judge endpoint in NB-002 matches the D9 choice recorded by NB-000 (`doc/notes/00b_probe_notes.md`)
-- [ ] Registry has ≥2 versions of one prompt; rollback exercised and recorded
+- [ ] Registry has ≥1 approved judge prompt (v1.0.0 shipped; D31); approve/rollback mechanism proven offline + notebook demo on a scratch copy
 - [ ] `uv run pytest tests/test_judge.py tests/test_registry.py` green
 - [ ] `uv run ruff check .` + `uv run mypy src/` clean
 - [ ] No key/literal in any file; logs carry no content
