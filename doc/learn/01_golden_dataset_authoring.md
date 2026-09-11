@@ -356,6 +356,28 @@ python3 tools/goldens/t01_verify.py eval/goldens/correctness_goldens.json 100 12
 future edit ever makes a script *not* idempotent, that is a bug: stop and fix
 it before trusting the recovered state.
 
+### Practice venue — the toy sandbox (D19)
+
+The committed golden set is **closed** (D19): no new rows go into
+`eval/goldens/` without a registered gap. To practice the method without
+touching official eval data, build a tiny sandbox instead:
+
+1. Write a small corpus by hand, e.g. `toy_docs/toy_bundle.md` — 3–6
+   paragraphs, a few facts, at least one deliberately conflicting pair and one
+   near-miss passage (so you can practice `conflict` and `abstain` rows).
+2. Write 5–10 `R(...)` rows against it, one per category you want to exercise,
+   using the §5 assembler pattern (line numbers, marker + contiguity asserts).
+3. Run a mini verifier (the T-01 logic from §6) and make the asserts catch
+   your deliberate mistakes — e.g. a wrong line number, a fragment that isn't
+   verbatim, a duplicated query.
+4. Keep the sandbox **outside** `eval/goldens/` and outside the committed
+   corpus; it is practice, not product. Delete or keep it as you like — it is
+   never part of the repo's eval result.
+
+This is the registered practice venue (D19, adopted from perplexity.ai's
+suggestion); it costs nothing and scales your skill before you ever need to
+author more official rows.
+
 ---
 
 ## 9. Your checklist before you call a golden set "done"

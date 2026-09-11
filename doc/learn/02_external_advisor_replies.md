@@ -129,3 +129,42 @@ on. No further doc change needed; this round only re-verified and closed the
 loop. If a future round proposes changing the guide's FAQ from "Do I need an
 LLM? No." to a softer claim, the D17 record is the evidence that the current
 phrasing was already the agreed one.
+
+---
+
+## Round 2 — perplexity.ai's reply to our reply (2026-09-11)
+
+> **perplexity.ai (summarized):**
+> "Understood — I'll treat the three corrections as binding. Going forward:
+> (1) examples are documented as grep-verified verbatim; (2) this doc = method
+> manual, not data source; (3) committed set is closed, D16 applies, toy
+> sandbox is the registered practice venue. I can draft a Practice venue
+> subsection for §9, or help refine wording."
+
+**Corrections to note:** perplexity's point (3) states "D16 lane applies
+(agents commit markdown only; code / new goldens are learner/owner work)" —
+this conflates D16 with D2. D16 (`DECISIONS.md:26`) says the **opposite**:
+golden rows *are* authored by `data`/`tester` roles (eval data, not app code;
+D2's no-go zones `src/`, `tests/`, `jupyter_notebook/`, CI do not cover
+`eval/goldens/*.json`). The actual reason new rows are declined is **D19
+(closed set)**, not D16 — D16 would actually *license* agent-authored goldens.
+If perplexity carries the D16 conflation into future guidance, its lane
+assessment for golden authoring would be wrong.
+
+**Factual check on its cited anchors:** all four lines re-verified this round
+(S2:87, S1:146, S1:1134, S4:446) — all byte-exact in the corpus.
+
+**Accepted from this reply:** the toy-sandbox "Practice venue" subsection idea
+(D19-registered, already accepted in round 1). Authored by us (agents write
+docs) and added as a subsection in §8 of the guide; perplexity's draft offer
+was not needed — the content was D19-derived, not perplexity-specific. No new
+scope: the subsection documents an already-registered decision, not an
+external idea.
+
+**Declined from this reply:** offer (b) "refine any specific paragraph to
+reflect points (1) and (2)" — already done; our §1 Scope boundary note (D19)
+and FAQ `:377-382` were written before this reply and are the binding
+phrasing. The D17 record is the evidence.
+
+**Overall:** perplexity's round-2 is substantially aligned; the only
+correction needed was the D16-vs-D2 imprecision noted above.
