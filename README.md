@@ -8,6 +8,10 @@ story, not a chapter bolted on at the end.
 > is written by you (the learner) — notebook first, then promoted into the package.
 > Agents write task docs, interview Q&A, review checklists, and verdicts — never code.
 
+> **Base project:** this folder is the reusable base project template — new projects are
+> spawned from it (clone → rename → fresh secrets → re-grounded goldens). See
+> `doc/BASE_PROJECT.md`.
+
 ## Why step 9 exists
 
 Your earlier repos built components in build order: RAG → eval → frameworks → multi-source →
