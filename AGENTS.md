@@ -50,3 +50,17 @@ checks. Agents never write code into `src/`, `tests/`, `jupyter_notebook/`, or C
 - **Manager-facing docs stay code-free; task docs carry the spec.**
 - **No secrets.** Never write API keys / tokens into files.
 - **`data` vs `data/`** — `data` (no slash) is always the role trigger; `data/` (slash) is always the corpus folder path. Never mix the two.
+
+## Module transition workflow (D21)
+
+When Module N closes and Module N+1 begins, follow this sequence (no deviation without a registered decision):
+
+1. **Module N close gate** — `review` (verdict table) + `tester` (category coverage, groundedness sample, contract fit). Every genuinely-new gap is registered as a decision (D20: external-advice pattern also applies). The gate passes only when verdict = PASS and all gaps are either IN (fixed in-module) or OUT (registered with destination).
+
+2. **Module N+1 starts** — **test-case matrix + LLD first** (per D12, just-in-time). The `writer md` drafts the LLD; the module's primary role reviews it before build begins. This is when scope, edge cases, and contracts are defined.
+
+3. **Notebook-first** (per D2) — `NB-XXX_<name>.ipynb` in `jupyter_notebook/`. The learner builds and runs it end-to-end before any promotion to src/.
+
+4. **Promote to src/** — only after the notebook runs clean and tests pass. The LLD's file layout becomes the folder structure in `src/llmops/`. Types + tests are added during promotion.
+
+5. **Exit criteria** from the binding contract (`doc/task/*.md`) are checked. Module N+1 is not declared complete until exit criteria pass.
