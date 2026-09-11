@@ -15,6 +15,7 @@ module. Agents read these files during `review`; they never create or edit them.
 | 0 | `00_my_definition.md` | your "LLMOps in my words" note: the measure-vs-decide line, 8 pillars, one deferral you can explain (≤ 20 lines) | Mod 0 — `doc/task/00_llmops_foundations.md` |
 | 00b | `00b_probe_notes.md` | NB-000 stack-probe evidence + the D9 judge-endpoint decision (no keys) | Mod 00b — when NB-000 runs (`doc/task/00b_uv_scaffold.md` Step 6) |
 | 1 | `01_corpus_plan.md` | corpus sources, per-source chunk strategy, per-source golden counts | Mod 1 — before authoring goldens (`doc/task/01_data_testset.md`) |
+| cross-cutting | `03_model_selection.md` | **D24**: leaderboard → budget filter → router-API judging → score matrix → best-per-usecase pick per model role (judge / generation / embedding) | after the learner's selection practice (evidence for D9 judge + Mod 4 generation defaults) |
 | 4 | `04_cost_notes.md` | free-tier quota budget — measured, not guessed | Mod 4 — `doc/task/04_observability_cost.md` |
 | 5 | `05_guardrail_notes.md` | abstention gate: before/after effect on gate outcome | Mod 5 — `doc/task/05_guardrails.md` |
 | 6 | `06_lifecycle_notes.md` | store-maintenance lifecycle observations | Mod 6 — `doc/task/06_lifecycle.md` |

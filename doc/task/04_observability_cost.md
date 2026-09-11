@@ -34,6 +34,9 @@
 - Logging invariant: metadata/counts/ids only — **never** query text, documents, or answers
   (step4 logutil; rejected Perplexity advice D11).
 - SLO values are starting baselines (D10), not carved in stone.
+- Generation model defaults (`GROQ_MODEL`/`GEMINI_MODEL`) are grounded in the model-selection
+  matrix (`doc/notes/03_model_selection.md`, D24) — the ladder's two rungs are chosen per
+  use-case evidence, not picked by hand.
 
 ## Exit criteria
 

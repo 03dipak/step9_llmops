@@ -34,7 +34,9 @@
 - Judge reads **only** `LLM_BASE_URL`/`LLM_API_KEY`/`LLM_MODEL` — generation is a separate
   ladder (Groq→Gemini) and the two are never mixed (step4 `config.py:131-215`).
 - Registry `record["model"]` = logical model id for provenance only; provider→model
-  resolution lives in config, never in the registry (step4 task-01 contract).
+  resolution lives in config, never in the registry (step4 task-01 contract). The
+  **judge's** `record["model"]` value is grounded in the model-selection matrix
+  (`doc/notes/03_model_selection.md`, D24) — the same D9 choice, evidenced.
 
 ## Exit criteria
 

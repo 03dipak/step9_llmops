@@ -48,7 +48,7 @@ symbol is private (`_`-prefixed).
 # LLM_BASE_URL  — OpenAI-compatible endpoint (required; missing/empty → RuntimeError)
 # LLM_API_KEY   — auth token (required; missing/empty → RuntimeError)
 # LLM_MODEL     — model id, logical name only; MISSING IS NOT AN ERROR → default per D9
-# ENV RULE: all three values are .strip()'d before use (step4 config.py:64 parity);
+# ENV RULE: all three values are .strip()'d before use (step4 config.py:62 parity);
 #           a value that is empty AFTER strip counts as missing.
 # ERROR MSG RULE: RuntimeError text names the env var + a hint; it must not contain
 #           the value, a partial key, or the endpoint URL (verify in T-02-2).
@@ -207,7 +207,7 @@ Cases derive from task 02 exit criteria + step4 evidence (judge.py:28-30, NB-000
 | T-02-3 | `throttled_invoke` serializes | 2 rapid calls (fake clock, `time.monotonic` mocked) | second call sees ≥ `_MIN_SPACING_S` (60/18 ≈ 3.33s) elapsed on the mock clock. Mirror step4 `eval/judge.py:28-30` (`_MIN_SPACING_S` + global lock + `_last_send`) | throttle correctness |
 | T-02-3a | throttle: first call immediate | 1 call, fresh throttle (fake clock 0) | no sleep on first call (`_last_send=0` → elapsed > spacing) | first-call semantics |
 | T-02-3b | throttle: exception doesn't compress window | invoke raises → invoke raises again (fake clock; both within 3.33s of each other) | second call still waits ≥ spacing from `_last_send`; `_last_send` unchanged by failures (mirror step4 `judge.py:50-56`) | no retry storms on failure |
-| T-02-4 | JSON prompt → parse → schema OK | valid JSON response mock | `winner` present; `score_a`/`score_b` integers 0-10; `reasoning` non-empty; pydantic validates | "JSON reply parsed and schema-validated" (exit criterion 1) |
+| T-02-4 | JSON prompt → parse → schema OK | valid JSON response mock | `winner` present; `score_a`/`score_b` integers 0-10 (step9 design choice — the judge prompt must instruct this range; NB-000 probe notes show sample scores 7/9 consistent with 0-10 but no explicit step4 source states the bound); `reasoning` non-empty; pydantic validates | "JSON reply parsed and schema-validated" (exit criterion 1) |
 | T-02-5 | Malformed JSON → salvage → re-prompt → OK | first response = fenced ` ```json...``` `, second = valid JSON | fence stripped, second attempt returns valid result; 2 invocations to the mock | salvage path works |
 | T-02-6 | Malformed JSON → salvage exhausted → `JudgeError` | 2 consecutive invalid responses | `JudgeError` raised; assert `str(err)` matches NO secret pattern (reuse T-02-11's regex set: `sk-`, `gsk_`, `xai-`, `LLM_BASE_URL`/`LLM_API_KEY` names, endpoint URL substring) | typed error, no secret leak |
 | T-02-7 | Registry approve (v2 → approved, v1 → retired) | load registry, approve `V2` | `V2.status == "approved"` AND `V1.status == "retired"` | "rollback exercised and recorded" (exit criterion 3) |
@@ -217,7 +217,7 @@ Cases derive from task 02 exit criteria + step4 evidence (judge.py:28-30, NB-000
 | T-02-10a | Judge reads no generation envs | patch `GROQ_API_KEY` / `GEMINI_API_KEY` into env, then `judge_llm()` | build still succeeds reading only `LLM_*`; generation envs are never read by judge code (D6 separation) | env separation invariant |
 | T-02-11 | No secrets in committed files | grep for `sk-`, `gsk_`, `xai-`, key patterns across `src/` + `tests/` + `jupyter_notebook/` + `registry.json` | no matches | "No key/literal in any file" (exit criterion 6) |
 | T-02-12 | `uv run ruff check .` + `uv run mypy src/` clean | toolchain check | exit 0, no findings. NOTE: mypy is only meaningful if every public function in `judge.py`/`registry.py` carries type hints — this is the rule, not a recommendation | "ruff + mypy clean" (exit criterion 5) |
-| T-02-13 | NB-002 runs end-to-end | `jupyter nbconvert --execute NB-002_judge_wiring.ipynb` | exit 0; stdout contains parsed judge JSON with winner + reasoning + scores | "NB-002 runs end-to-end" (exit criterion 1) |
+| T-02-13 | NB-002 runs end-to-end | `uv run jupyter nbconvert --to notebook --execute jupyter_notebook/NB-002_judge_wiring.ipynb` | exit 0; stdout contains parsed judge JSON with winner + reasoning + scores | "NB-002 runs end-to-end" (exit criterion 1) |
 | T-02-13a | NB-002 ↔ module parity | after `config/judge.py` + `prompts/registry.py` are promoted, re-run NB-002 | NB-002 still passes. NOTE (drift rule): NB-002 is the prototype; once the modules exist they are the source of truth. Notebooks may diverge, but all offline tests target the promoted modules — notebook asserts never replace test coverage. Mod 3 gates additionally wrap `judge_llm()` (regression parity lives there) | prototype→promote discipline (D2) |
 | T-02-14 | NB-002 endpoint matches D9 | notebook asserts `LLM_MODEL` env value | matches `Qwen/Qwen2.5-7B-Instruct-AWQ` (or D9-verified default) | "endpoint matches D9 choice" (exit criterion 2) |
 

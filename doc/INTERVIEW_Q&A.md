@@ -38,6 +38,14 @@ answer regressions. Pinned judge + throttle (~20 req/min, lock + spacing) + JSON
 schema validation and salvage = a stable yardstick. One judge is shared by both DeepEval and
 Ragas so backend swaps never change the instrument.
 
+**Q. How did you pick which models to use?**
+**A:** It's an LLMOps decision, not a preference: a **model-selection matrix** (D24) — I took
+the free-tier leaderboard candidates within budget, ran them through the router API under the
+same judge, scored them into a matrix, and picked the best per use-case per role (judge /
+generation / embedding). Evidence lives in `doc/notes/03_model_selection.md`. Any later model
+change is a registered decision, not a silent swap — same discipline as the judge pin.
+**Check:** they can see the matrix is evidence-backed, not vibes.
+
 **Q. How do you know the system got worse before a user complains?**
 **A:** Three layers: (1) baseline snapshot from the last green run; (2) regression gate —
 every metric has direction, kind (gate/guardrail/info) and tolerance (±0.03 judge, ±20%
