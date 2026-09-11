@@ -39,6 +39,17 @@ wrong without a script screaming at you.** We do that in three layers:
 Layer 2 and 3 **cannot invent content** — they only extract, assert, and
 compare. All the intelligence is in layer 1; all the anti-lying is in 2 and 3.
 
+> **Scope boundary (registered after external review, 2026-09-11):** this guide
+> is a **method manual, not a data source**. Its examples (e.g. `MS-Q002`,
+> `S2-Q037`, `S4:446`) *are* verbatim excerpts of the real bundles — but the
+> only ground truth is `data/docs/*.md`. Never cite this guide as the corpus:
+> the T-01 verifier checks fragments against the bundles, not against this
+> document. New rows for *this repo's* committed golden set are **closed**
+> (D19); practice goldens belong in a toy sandbox outside `eval/goldens/`
+> (D19). External AI advice on this method is treated as external review
+> (D17): replies sent to claude.ai & perplexity.ai, with verification
+> evidence, are in `doc/learn/02_external_advisor_replies.md`.
+
 ---
 
 ## 2. The schema — the 8 keys, explained
