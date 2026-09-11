@@ -89,5 +89,23 @@ The anchor checker validates `must_contain` against **every** bundle in `path`.
   ~30%.
 - T-01-1 counts (43 vs 120–160) remain a completion target; seed/batch stages are
   knowingly non-final.
-- Next: `eval/goldens/query_processing_goldens.json` (60–75, misroute negatives,
-  task 01:70) and `eval/goldens/correctness_goldens.json` (100–120, task 01:71).
+- **Retriever complete (2026-09-11): S3/S4/S5 + MS batches** — `S3-Q005..Q026`,
+  `S4-Q002..Q026`, `S5-Q004..Q026`, `MS-Q003` (conflict, embed dim) / `MS-Q004`
+  (degrade, Groq 500) appended via an idempotent self-correcting batch script → **139
+  rows (120–160 band)**, `FAILURES: NONE`. File state: cite 95, basic 23 (16.5%),
+  misroute 5, conflict 5, abstain 5, degrade 5, multi-source 1. Per-source: S1 32,
+  S2 25, S3 26, S4 26, S5 26 (135) + MS 4.
+- **Routing complete (2026-09-11): `query_processing_goldens.json` — 67 rows
+  (60–75 band)**, `FAILURES: NONE`: `S1-Q033..Q045`, `S2-Q026..Q037`, `S3-Q027..Q038`,
+  `S4-Q027..Q037`, `S5-Q027..Q036`, `MS-Q005..Q013`. cite 38, misroute 8, conflict 5,
+  abstain 5, degrade 5, multi-source 5, basic 1. Misroute negatives cover router
+  misroute detection (#24, `S5-Q028`); abstain rows anchor on the near-miss content
+  (`S2-Q037` LangSmith free tier → S1; `S4-Q035` daily budget → S3).
+- **Correctness complete (2026-09-11): `correctness_goldens.json` — 107 rows
+  (100–120 band)**, `FAILURES: NONE`: `S1-Q046..Q066`, `S2-Q038..Q057`, `S3-Q039..Q058`,
+  `S4-Q038..Q058`, `S5-Q037..Q056`, `MS-Q014..Q018`. cite 73, misroute 6, conflict 5,
+  abstain 10, degrade 12, multi-source 1, basic 0. Judge-reference rows for the
+  correctness gate; MS conflicts surface judge model (S1+S4), chunk size (S1+S4),
+  scoring (S1+S2), LangSmith scope (S5+S4).
+- **Cross-file verification (2026-09-11):** all three golden files pass T-01-1..7
+  with **ids and queries unique across the three files** (asserted pairwise).

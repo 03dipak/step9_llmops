@@ -2,7 +2,10 @@
 
 > Companion to `doc/design/01_lld_tests.md` (contracts) and `doc/task/01_data_testset.md`
 > (task spec). This file records the **exact procedure and Python logic** used to produce
-> the verified rows in `eval/goldens/retriever_goldens.json` (67 rows, 2026-09-11).
+> the verified rows in `eval/goldens/retriever_goldens.json` (139 rows, 2026-09-11;
+> 120–160 target band) — and the same procedure, unchanged, produced
+> `query_processing_goldens.json` (67 rows, 60–75) and `correctness_goldens.json`
+> (107 rows, 100–120).
 >
 > **Lane note (D16 + house rule):** agents commit markdown only. The code blocks below are
 > **reference logic** — the learner ports them into `jupyter_notebook/NB-01_anchor_check.ipynb`
@@ -15,8 +18,11 @@ read the bundle → mark anchor lines → extract verbatim (marker + contiguity 
 → author the 8 fields → append → run the T-01 suite → fix → commit
 ```
 
-Every batch followed: `S1` (32 rows) → `S2`-batch + `MS-Q002` (24 rows) → file 67 rows,
-`FAILURES: NONE` on T-01-1..9.
+Every batch followed: `S1` (32 rows) → `S2`-batch + `MS-Q002` (24 rows) →
+`S3`-batch (22) → `S4`-batch (25) → `S5`-batch (23) + `MS-Q003/Q004` → file 139 rows,
+`FAILURES: NONE` on T-01-1..9. The same procedure then produced
+`query_processing_goldens.json` (67, `FAILURES: NONE`) and `correctness_goldens.json`
+(107, `FAILURES: NONE`) with cross-file id/query uniqueness asserted.
 
 ## 1. Prep — corpus manifest
 
@@ -120,7 +126,7 @@ json.dump(rows, open(GOLD, "w"), indent=2, ensure_ascii=False)
 
 ## 5. The T-01 verification suite (the logic NB-01 must mirror)
 
-This is exactly what ran over the 67-row file (output: `TOTAL 67 | FAILURES: NONE`):
+This is exactly what ran over the 139-row retriever file (output: `TOTAL 139 | FAILURES: NONE`); the same suite ran against `query_processing_goldens.json` (`TOTAL 67 | FAILURES: NONE`) and `correctness_goldens.json` (`TOTAL 107 | FAILURES: NONE`).
 
 ```python
 import json, re
@@ -231,8 +237,15 @@ fixed tuple; it is idempotent (reloads committed rows) and rewrites the file ato
 ## Verify
 
 ```bash
+# Retriever (139 rows, 120–160 band)
 uv run python - <<'EOF'
 # paste section 5's suite, run against eval/goldens/retriever_goldens.json
-# expected: TOTAL 67 | FAILURES: NONE  (2026-09-11)
+# expected: TOTAL 139 | FAILURES: NONE  (2026-09-11)
 EOF
+
+# Routing (67 rows, 60–75 band) — same T-01 suite, path points at query_processing_goldens.json
+# expected: TOTAL 67 | FAILURES: NONE
+
+# Correctness (107 rows, 100–120 band) — same T-01 suite, path points at correctness_goldens.json
+# expected: TOTAL 107 | FAILURES: NONE
 ```
