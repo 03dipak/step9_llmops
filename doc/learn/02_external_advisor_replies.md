@@ -1,5 +1,14 @@
 # Replies to external AI advisors (claude.ai & perplexity.ai)
 
+> **Status (2026-09-11): CLOSED.** Both engagements converged — claude.ai
+> conceded cleanly (round 2), perplexity.ai adopted the corrections with one
+> lane correction logged (round 2). **No further discussion with either
+> advisor.** If either returns with a round 3, the protocol is unchanged:
+> external reviews = checkpoints; verify claims against the repo before
+> adopting; fold adoptions into existing docs; decline scope creep. The D19
+> closed-set policy and D16 lane boundaries are binding regardless of what any
+> external advisor proposes.
+
 Context: on 2026-09-11 the golden dataset suite was reviewed by two external AI
 advisors. Per house rule **"external reviews are checkpoints, not verdicts"**,
 every claim they made was verified against the actual repo before adoption.
