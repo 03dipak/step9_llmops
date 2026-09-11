@@ -56,12 +56,24 @@ symbol is private (`_`-prefixed).
 def judge_llm() -> ChatOpenAI:
     """Build judge from env (stripped); raises RuntimeError if URL/KEY missing."""
 
+class JudgeResponse(BaseModel):
+    """Typed judge output. Domain decided in D25 (claude.ai round-3 triage):
+    winner ∈ {"A", "B"} — step4 probe notes show "winner": "B"; no step4 source
+    states a wider domain, so step9 binds it narrow. score_a/score_b = ints 0-10
+    (step9 design choice, F-2: probe notes sample 7/9, no step4 source states the
+    bound; the judge prompt must instruct this range). reasoning = non-empty str."""
+    winner: Literal["A", "B"]
+    score_a: int  # 0-10
+    score_b: int  # 0-10
+    reasoning: str  # non-empty
+
 class _JudgeThrottle:
     """Process-global lock + ≥3.33s spacing (~18 req/min; step4 observed 429 at ~20 req/min).
     Scope: in-memory, per-process only — cross-process coordination is OUT of scope in Mod 2.
     First call: no initial wait (_last_send starts at 0 → elapsed > spacing).
     Exceptions: _last_send is updated ONLY on success — a failing endpoint never
     compresses the spacing window (mirrors step4 eval/judge.py:50-56)."""
+    _MIN_SPACING_S: float = 60.0 / 18
     _lock: threading.Lock
     _last_send: float
 
@@ -122,6 +134,15 @@ Mirrors step4 (`prompts/prompt_registry.json`).
 
 **Composite key**: `prompt_id + source_type + version` — unique within the registry.
 
+**This module's registry content (named, D25):** exactly one prompt family,
+`prompt_id = judge_system`, `source_type = generic` (the judge isn't source-routed —
+**registry selection is unambiguous because Mod 2 holds exactly one
+`(prompt_id, source_type)` pair** — step 2 of the data flow picks the approved
+version of that single pair). Two versions are authored, e.g.
+`v1.0.0` → approve, author `v1.1.0` → approve (v1 retired), then **rollback to
+v1.0.0 is exercised and recorded** (exit criterion 3). Multi-key selection is OUT
+of scope (Mod 6 lifecycle owns it).
+
 **Version semantics**: `version` is a semver string (`<major>.<minor>.<patch>`) **by
 convention only**; `approve`/`rollback` never parse, compare, or sort it — they flip the
 `status` flag. The registry does not infer ordering from version numbers.
@@ -168,6 +189,12 @@ NB-002 (notebook-first, D2)
   ├─ 1. Read env → judge_llm()
   │
   ├─ 2. Load registry.json → select approved prompt → render template
+  │      (input source: ONE golden row from eval/goldens/ — row id asserted in
+  │       the notebook, task 02 depends on Task 01 goldens. The judge output
+  │       schema is pairwise (winner A/B + score_a/score_b, per NB-000 probe
+  │       notes), so the template renders a comparison task; exact template text
+  │       is learner-authored (D2). Pinning the golden row-id + query makes
+  │       T-02-13's stdout check reproducible.)
   │
   ├─ 3. throttled_invoke(rendered_prompt, llm=judge_llm())
   │        │
@@ -207,10 +234,12 @@ Cases derive from task 02 exit criteria + step4 evidence (judge.py:28-30, NB-000
 | T-02-3 | `throttled_invoke` serializes | 2 rapid calls (fake clock, `time.monotonic` mocked) | second call sees ≥ `_MIN_SPACING_S` (60/18 ≈ 3.33s) elapsed on the mock clock. Mirror step4 `eval/judge.py:28-30` (`_MIN_SPACING_S` + global lock + `_last_send`) | throttle correctness |
 | T-02-3a | throttle: first call immediate | 1 call, fresh throttle (fake clock 0) | no sleep on first call (`_last_send=0` → elapsed > spacing) | first-call semantics |
 | T-02-3b | throttle: exception doesn't compress window | invoke raises → invoke raises again (fake clock; both within 3.33s of each other) | second call still waits ≥ spacing from `_last_send`; `_last_send` unchanged by failures (mirror step4 `judge.py:50-56`) | no retry storms on failure |
-| T-02-4 | JSON prompt → parse → schema OK | valid JSON response mock | `winner` present; `score_a`/`score_b` integers 0-10 (step9 design choice — the judge prompt must instruct this range; NB-000 probe notes show sample scores 7/9 consistent with 0-10 but no explicit step4 source states the bound); `reasoning` non-empty; pydantic validates | "JSON reply parsed and schema-validated" (exit criterion 1) |
+| T-02-4 | JSON prompt → parse → schema OK | valid JSON response mock | `winner` ∈ `{"A","B"}` (D25 domain, verified in probe notes sample); `score_a`/`score_b` integers 0-10 (step9 design choice — the judge prompt must instruct this range; NB-000 probe notes show sample scores 7/9 consistent with 0-10 but no explicit step4 source states the bound); `reasoning` non-empty; pydantic validates | "JSON reply parsed and schema-validated" (exit criterion 1) |
 | T-02-5 | Malformed JSON → salvage → re-prompt → OK | first response = fenced ` ```json...``` `, second = valid JSON | fence stripped, second attempt returns valid result; 2 invocations to the mock | salvage path works |
+| T-02-5a | JSON-mode fallback: endpoint ignores `response_format` | mock llm that never receives `response_format={"type":"json_object"}` (or raises on it); returns plain fenced JSON | falls back to fence-strip + `json.loads` and returns valid result **without salvage** (no error, no 2nd invoke) | primary fallback path, not just salvage (claim 9, D25) |
 | T-02-6 | Malformed JSON → salvage exhausted → `JudgeError` | 2 consecutive invalid responses | `JudgeError` raised; assert `str(err)` matches NO secret pattern (reuse T-02-11's regex set: `sk-`, `gsk_`, `xai-`, `LLM_BASE_URL`/`LLM_API_KEY` names, endpoint URL substring) | typed error, no secret leak |
 | T-02-7 | Registry approve (v2 → approved, v1 → retired) | load registry, approve `V2` | `V2.status == "approved"` AND `V1.status == "retired"` | "rollback exercised and recorded" (exit criterion 3) |
+| T-02-7a | Registry `record_eval` writes scores + increments run_count | `record_eval(registry, key, accuracy=0.82, latency_ms=400)` | `eval_scores == {"accuracy": 0.82, "latency_ms": 400}` AND `run_count == (previous + 1)`; subsequent call increments again | record_eval behavior verified (claim 7, D25) |
 | T-02-8 | Registry rollback to V1 | approve V2 (V1 → retired), then rollback V2 | `V1.status == "approved"`, `V2.status == "retired"` | rollback lifecycle |
 | T-02-9 | Registry unknown key → `KeyError` | `approve(registry, "NONEXISTENT")` | `KeyError` with key name | robustness |
 | T-02-10 | Registry `model` = provenance only | `registry.json` entries contain `model` field | no code resolves provider from `model`; field is a free string (test: read + assert string, never pass to provider builder) | "never in the registry" (task 02:37) |
@@ -219,16 +248,16 @@ Cases derive from task 02 exit criteria + step4 evidence (judge.py:28-30, NB-000
 | T-02-12 | `uv run ruff check .` + `uv run mypy src/` clean | toolchain check | exit 0, no findings. NOTE: mypy is only meaningful if every public function in `judge.py`/`registry.py` carries type hints — this is the rule, not a recommendation | "ruff + mypy clean" (exit criterion 5) |
 | T-02-13 | NB-002 runs end-to-end | `uv run jupyter nbconvert --to notebook --execute jupyter_notebook/NB-002_judge_wiring.ipynb` | exit 0; stdout contains parsed judge JSON with winner + reasoning + scores | "NB-002 runs end-to-end" (exit criterion 1) |
 | T-02-13a | NB-002 ↔ module parity | after `config/judge.py` + `prompts/registry.py` are promoted, re-run NB-002 | NB-002 still passes. NOTE (drift rule): NB-002 is the prototype; once the modules exist they are the source of truth. Notebooks may diverge, but all offline tests target the promoted modules — notebook asserts never replace test coverage. Mod 3 gates additionally wrap `judge_llm()` (regression parity lives there) | prototype→promote discipline (D2) |
-| T-02-14 | NB-002 endpoint matches D9 | notebook asserts `LLM_MODEL` env value | matches `Qwen/Qwen2.5-7B-Instruct-AWQ` (or D9-verified default) | "endpoint matches D9 choice" (exit criterion 2) |
+| T-02-14 | NB-002 endpoint matches D9 | notebook asserts `LLM_MODEL` env value | matches **`Qwen/Qwen2.5-7B-Instruct-AWQ`** — D9's decision, inlined here (evidence: step4 `config.py:43` default + `doc/notes/00b_probe_notes.md` NB-000 PASS; the D9 row is the oracle, the probe notes are the deciding evidence) | "endpoint matches D9 choice" (exit criterion 2) |
 
 ## Role reviews (read-only lens, before you build)
 
 | Role | Checked | Verdict |
 |---|---|---|
-| **security** | No keys in registry.json templates; `judge_llm()` reads env at runtime only; salvage `JudgeError` message checked against key/endpoint leakage; `.env` never committed (T-02-11 covers) | ⏳ pre-build review |
-| **ops** | Throttle spacing ≤18 req/min (D10 latency budget not affected — judge is offline/gate-only, not in P95); `JudgeError` typed for structured logging | ⏳ |
-| **tester** | 18 cases: factory (T-02-1/2), throttle+exceptions (T-02-3/3a/3b), JSON+schema (T-02-4), salvage (T-02-5/6, security regex reuse), registry lifecycle (T-02-7/8/9), provenance (T-02-10), env separation (T-02-10a), hygiene (T-02-11/12, type hints mandated), notebook (T-02-13/13a/14) — all offline except T-02-13/14 which are `integration`-marked | ⏳ |
-| **planner** | No module-order deviation; NB-002 notebook-first (D2) → promote → tests; config is a package, not a single file (00b LLD projection + INTERVIEW_Q&A package diagram) | ⏳ pre-build review |
+| **security** | No keys in registry.json templates; `judge_llm()` reads env at runtime only; salvage `JudgeError` message checked against key/endpoint leakage; `.env` never committed (T-02-11 covers) | ✅ closed 2026-09-11 (reviewer pass; no gaps found beyond already-registered) |
+| **ops** | Throttle spacing ≤18 req/min (D10 latency budget not affected — judge is offline/gate-only, not in P95); `JudgeError` typed for structured logging; **registry single-writer assumption accepted for Mod 2** — parallel-CI writes to `registry.json` are structurally OUT (Mod 6 lifecycle), not a Mod-2 gap | ✅ closed 2026-09-11 (D25) |
+| **tester** | 20 cases: factory (T-02-1/2), throttle+exceptions (T-02-3/3a/3b), JSON+schema (T-02-4), salvage (T-02-5/5a/6, security regex reuse), registry lifecycle (T-02-7/7a/8/9), provenance (T-02-10), env separation (T-02-10a), hygiene (T-02-11/12, type hints mandated), notebook (T-02-13/13a/14) — all offline except T-02-13/14 which are `integration`-marked | ✅ closed 2026-09-11 (D25; T-02-5a + T-02-7a added from review) |
+| **planner** | No module-order deviation; NB-002 notebook-first (D2) → promote → tests; config is a package, not a single file (00b LLD projection + INTERVIEW_Q&A package diagram) | ✅ closed 2026-09-11 (reviewer pass) |
 | **ux** | n/a — no user-facing interface in Mod 2 | ⏭️ |
 
 ## Verify (run after notebook promotion + tests)

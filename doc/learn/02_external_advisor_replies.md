@@ -177,3 +177,82 @@ phrasing. The D17 record is the evidence.
 
 **Overall:** perplexity's round-2 is substantially aligned; the only
 correction needed was the D16-vs-D2 imprecision noted above.
+
+---
+
+## Round 3 — claude.ai Mod 2 gap analysis (2026-09-11)
+
+> **claude.ai:** Provided an 11-point gap analysis for the Mod 2 LLD
+> (`doc/design/02_lld_tests.md` + `doc/task/02_prompts_judge.md`), with an
+> offer to draft the judge prompt and `JudgeResponse` pydantic model.
+
+**Protocol applied:** D17/D20 external-review checkpoint. Every claim
+verified against actual files (`doc/design/02_lld_tests.md`, step4
+`eval/judge.py`, step4 `doc/notes/00b_probe_notes.md`).
+
+**Adopted (9 of 11 — all folded into the LLD, registered as D25):**
+
+- **Winner domain undefined** (#3): step4 probe notes show `"winner": "B"`;
+  no source anywhere defines allowed values. Adopted: `winner: Literal["A","B"]`
+  as the step9 binding domain — evidence-grounded, narrow. (ADL
+  `JudgeResponse` definition added to LLD, claim 3.)
+- **No prompt_id / source_type named** (#4): registry structure specified but
+  prompt not named for the two required versions. Adopted: prompt_id =
+  `judge_system`, two versions (v1.0.0 → approve → v1.1.0 → rollback); the
+  review's offer to draft *content* was declined — content authoring is
+  learner's lane per D2. (Naming added to LLD registry schema.)
+- **No selection key** (#5): data-flow step 2 says "select approved prompt"
+  without specifying how. Adopted: Mod 2 registry holds exactly one
+  `(prompt_id, source_type)` — selection = the approved version of that pair;
+  multi-key selection is OUT (Mod 6 lifecycle). (One-line scope statement
+  added to LLD.)
+- **NB-002 input source unspecified** (#6): golden-row source for the wiring
+  demo never stated. Adopted: NB-002 uses one golden row from
+  `eval/goldens/` (row id asserted in notebook assert). (One-line added to
+  LLD data-flow annotation.)
+- **`record_eval()` untested** (#7): matrix covers approve/rollback/unknown
+  but not record_eval. Adopted: T-02-7a added — writes `eval_scores` dict
+  + increments `run_count` by 1.
+- **`_MIN_SPACING_S` undeclared** (#8): test T-02-3 references the constant
+  but interface stub only shows `_lock` / `_last_send`. Adopted: `_MIN_SPACING_S:
+  float = 60.0 / 18` added to `_JudgeThrottle` body.
+- **JSON-mode fallback untested** (#9): T-02-5/6 test salvage, not the
+  "endpoint ignores `json_object`" primary fallback. Adopted: T-02-5a added
+  — mock endpoint ignores `response_format` → fence-strip + `json.loads`
+  succeeds without salvage.
+- **T-02-14 oracle soft** (#10): "(or D9-verified default)" defers the
+  oracle to another doc. Adopted: T-02-14 now inlines D9's decision
+  (`Qwen/Qwen2.5-7B-Instruct-AWQ`), with the cross-ref as evidence
+  source, not oracle.
+- **Role reviews unowned** (#1 + #11): all `⏳` before this review.
+  Adopted: role-review table now closed with reviewer verdict (see
+  `doc/design/02_lld_tests.md` post-D25 edits); ops: single-writer
+  assumption acceptable for Mod 2; cross-process serialization OUT until
+  Mod 6.
+
+**Declined (2):**
+
+- **Prompt content not specified** (#4, content part): the review offered
+  to draft the judge prompt and `JudgeResponse` model. The
+  `JudgeResponse` schema (winner domain, 0-10 scores) was adopted, but
+  drafting the actual prompt text is **learner's lane (D2)**. Agents write
+  markdown + interfaces; the learner writes all code including prompt
+  text. The LLD defines *what* the registry holds (prompt_id = `judge_system`,
+  two versions, approved/retired lifecycle); the learner authors the prompt
+  *template* content inside that structure.
+- **0-10 bound ungrounded** (#2): **already resolved as F-2** in commit
+  `ec743e3` — labeled a step9 design choice, noted that the judge prompt
+  must instruct the range, and probe notes (scores 7/9) are consistent.
+  Already tracked, no new work.
+
+**Declined (content, not gap):** "registry concurrency unowned" (#11):
+documented as a *single-writer assumption* at save_registry design level.
+For Mod 2 (single-process notebook workflow + offline tests on in-memory
+dicts), this is acceptable. The ops role now signs off on this acceptance.
+Parallel-CI writes to registry.json are structurally out of scope until
+Mod 6 lifecycle (documented), not a gap to mitigate.
+
+**Overall:** 9 of 11 claims were factual and verified; 1 already tracked;
+1 was a D2-lane question (content, not gap). All adoptions folded into the
+LLD; the engagement remains closed (D17 protocol — checkpoints, not
+back-and-forth).
