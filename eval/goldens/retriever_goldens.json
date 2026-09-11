@@ -28,6 +28,36 @@
     "path": "data/docs/s1_early_steps_bundle.md + data/docs/s2_frameworks_bundle.md"
   },
   {
+    "id": "MS-Q003",
+    "category": "conflict",
+    "query": "What embedding dimension does the shared pipeline use — 1024-dim as Step 3 records, or the dimension the embedder observes at runtime?",
+    "ideal_answer": "The corpus records two different truths. The Step-3 rebuild states 'Same embedding as Step 2 (qwen3-embed, 1024-dim)' — a nominal 1024-dim claim. But the Step-4 deep-dive says dimension is observed, not declared: dim() returns None before the first embed, _coerce records it, there is no dimension=1024 constant, and the Layer-1 stub wraps a 128-d deterministic embedder. A faithful answer surfaces the discrepancy (and the #25 drift risk) instead of picking one number.",
+    "ideal_context": "**A:** **Observed, not declared.** `dim()` returns None before the first embed; `_coerce` records\nit. No `dimension=1024` constant. Mixed dims or drift raise `ValueError`. The contract must\nsurvive a swapped model (e.g. a future 768-d entry).",
+    "must_contain": [
+      "qwen3-embed, 1024-dim",
+      "Observed, not declared",
+      "dimension=1024",
+      "128-d"
+    ],
+    "source": "S2+S4",
+    "path": "data/docs/s2_frameworks_bundle.md + data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "MS-Q004",
+    "category": "degrade",
+    "query": "Groq returns a 500 error mid-request. Does the pipeline fail gracefully?",
+    "ideal_answer": "The corpus grounds both a goal and a rule. The step-7 objective states failure handling means graceful degradation when things break, and its exam asks exactly this question. The step-4 fallback rule is deliberately narrow: only rate-limit errors get retry-once-then-fallback to Gemini — falling through on a permanent error (like a 500-class failure that won't succeed elsewhere) masks real bugs, so those propagate and are surfaced (error-rate monitoring) rather than silently swallowed.",
+    "ideal_context": "5. **Failure:** Groq returns a 500 error. Does your pipeline fail gracefully?",
+    "must_contain": [
+      "Graceful degradation when things break",
+      "Does your pipeline fail gracefully?",
+      "retry-once-then-fallback",
+      "those propagate"
+    ],
+    "source": "S3+S4",
+    "path": "data/docs/s3_lifecycle_bundle.md + data/docs/s4_qa_deep_dives.md"
+  },
+  {
     "id": "S1-Q001",
     "category": "basic",
     "query": "What chunking strategy does step 1 use, and what are the chunk size and overlap?",
@@ -843,6 +873,318 @@
     "path": "data/docs/s3_lifecycle_bundle.md"
   },
   {
+    "id": "S3-Q005",
+    "category": "cite",
+    "query": "What checks does input-guardrail validation run before a query reaches the RAG pipeline?",
+    "ideal_answer": "InputGuardrails.validate() runs four checks in order: length (rejects queries over 10,000 chars with 'Query too long'), prompt-injection detection (rejects with 'Potential prompt injection'), an off-topic check ('Question not related to loaded documents'), and rate limiting ('Rate limit exceeded'). Only if all pass does it return True.",
+    "ideal_context": "class InputGuardrails:\n    def validate(self, query: str) -> tuple[bool, str]:\n        # Length check\n        if len(query) > 10000:\n            return False, \"Query too long\"\n\n        # Prompt injection detection\n        if self.detect_injection(query):\n            return False, \"Potential prompt injection\"\n\n        # Off-topic check\n        if not self.is_rag_related(query):\n            return False, \"Question not related to loaded documents\"\n\n        # Rate limiting\n        if self.is_rate_limited():\n            return False, \"Rate limit exceeded\"\n\n        return True, \"\"",
+    "must_contain": [
+      "Query too long",
+      "Potential prompt injection",
+      "Question not related to loaded documents",
+      "Rate limit exceeded"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q006",
+    "category": "cite",
+    "query": "What makes the output guardrails reject an LLM answer?",
+    "ideal_answer": "OutputGuardrails.validate() rejects on three conditions: faithfulness of the answer against context below 0.5 ('Answer not supported by context'), detected toxicity ('Answer contains inappropriate content'), or citations that fail verification against the context ('Invalid citations').",
+    "ideal_context": "class OutputGuardrails:\n    def validate(self, answer: str, context: list[dict]) -> tuple[bool, str]:\n        # Hallucination check: does answer match context?\n        faithfulness = self.check_faithfulness(answer, context)\n        if faithfulness < 0.5:\n            return False, \"Answer not supported by context\"\n\n        # Toxicity check\n        if self.detect_toxicity(answer):\n            return False, \"Answer contains inappropriate content\"\n\n        # Citation check: are citations real?\n        if not self.verify_citations(answer, context):\n            return False, \"Invalid citations\"\n\n        return True, \"\"",
+    "must_contain": [
+      "Answer not supported by context",
+      "detect_toxicity",
+      "Invalid citations"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q007",
+    "category": "cite",
+    "query": "What happens when today's LLM spend exceeds the configured daily budget?",
+    "ideal_answer": "CostTracker carries a daily_budget (default $5.0). track() computes the cost for the tokens and model, accumulates it into today_usage, and raises BudgetExceeded (\"Daily budget $5.0 exceeded\") once usage passes the budget.",
+    "ideal_context": "```python\nclass CostTracker:\n    def __init__(self, daily_budget: float = 5.0):\n        self.daily_budget = daily_budget\n        self.today_usage = 0.0\n\n    def track(self, tokens: int, model: str):\n        cost = calculate_cost(tokens, model)\n        self.today_usage += cost\n\n        if self.today_usage > self.daily_budget:",
+    "must_contain": [
+      "daily_budget",
+      "calculate_cost",
+      "BudgetExceeded"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q008",
+    "category": "cite",
+    "query": "In shadow testing, which answer does the user actually see?",
+    "ideal_answer": "Shadow testing runs production with the current approved prompt and, in the background (user doesn't see), the new candidate prompt version (V3_shadow). The results are logged, but the user only ever sees the production answer returned by prompt_version=\"current\".",
+    "ideal_context": "class ShadowTester:\n    def query(self, question: str) -> str:\n        # Production: use current approved prompt\n        prod_answer = self.pipeline.ask(question, prompt_version=\"current\")\n\n        # Shadow: run new prompt in background (user doesn't see)\n        shadow_answer = self.pipeline.ask(question, prompt_version=\"V3_shadow\")\n        self.log_shadow_result(question, prod_answer, shadow_answer)\n\n        return prod_answer  # User only sees production answer",
+    "must_contain": [
+      "V3_shadow",
+      "log_shadow_result",
+      "User only sees production answer"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q009",
+    "category": "cite",
+    "query": "How does the A/B router split traffic between production and the candidate prompt?",
+    "ideal_answer": "ABTestRouter computes user_hash = hash(question) % 100; a hash below 90 routes to 'current' (90% of traffic) and the rest goes to 'V3_candidate' (10% of traffic).",
+    "ideal_context": "class ABTestRouter:\n    def route(self, question: str) -> str:\n        user_hash = hash(question) % 100\n        if user_hash < 90:\n            return \"current\"      # 90% traffic → production\n        else:\n            return \"V3_candidate\" # 10% traffic → candidate",
+    "must_contain": [
+      "hash(question) % 100",
+      "90% traffic → production",
+      "10% traffic → candidate"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q010",
+    "category": "cite",
+    "query": "What was the measured outcome of the V3 prompt after a week of A/B testing?",
+    "ideal_answer": "The A/B comparison recorded prod_metrics avg_score 0.82 at $0.002 per query versus v3_metrics avg_score 0.87 at $0.003 per query — 'V3 is 6% better but 50% more expensive', so the decision rule is to promote if quality matters more than cost, keep as candidate if cost is critical.",
+    "ideal_context": "# After running A/B test for 1 week:\nprod_metrics = {\"avg_score\": 0.82, \"cost_per_query\": 0.002}\nv3_metrics = {\"avg_score\": 0.87, \"cost_per_query\": 0.003}\n\n# Decision: V3 is 6% better but 50% more expensive\n# → Promote if quality matters more than cost\n# → Keep as candidate if cost is critical",
+    "must_contain": [
+      "avg_score",
+      "0.82",
+      "0.87",
+      "6% better but 50% more expensive",
+      "Promote if quality matters more than cost"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q011",
+    "category": "cite",
+    "query": "Why can prompt-registry rollback be a data operation instead of a code redeploy?",
+    "ideal_answer": "Because the mechanism (the shared registry class) is separate from the state: production answers come from registry.get(prompt_id, approved_only=True), so rolling back means flipping status in registry.json — no code redeploy, no binary rollback.",
+    "ideal_context": "2. **Rollback is a data op** — production answers come from `registry.get(prompt_id, approved_only=True)`; rolling back = flipping status in `registry.json`. No code redeploy, no binary rollback.",
+    "must_contain": [
+      "registry.get(prompt_id, approved_only=True)",
+      "flipping status in",
+      "No code redeploy, no binary rollback."
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q012",
+    "category": "cite",
+    "query": "What did the monitoring dashboard example show for the day's usage and latency?",
+    "ideal_answer": "The dashboard shows 1,234 requests today, average latency 1.2s, error rate 0.3%, token usage 450,000 / 1,000,000 (45%), and cost today $2.30 / $5.00 (46%).",
+    "ideal_context": "│  Requests today: 1,234                           │\n│  Avg latency: 1.2s                               │\n│  Error rate: 0.3%                                │\n│  Token usage: 450,000 / 1,000,000 (45%)         │\n│  Cost today: $2.30 / $5.00 (46%)                 │",
+    "must_contain": [
+      "Requests today: 1,234",
+      "Error rate: 0.3%",
+      "450,000 / 1,000,000 (45%)",
+      "$2.30 / $5.00 (46%)"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q013",
+    "category": "cite",
+    "query": "Which deployment option does the corpus pair with high complexity and $50+/month?",
+    "ideal_answer": "Kubernetes is listed as High complexity, $50+/mo, best for Enterprise.",
+    "ideal_context": "| Option | Complexity | Cost | Best For |\n|--------|-----------|------|----------|\n| Streamlit Cloud | Low | Free | Prototypes |\n| Docker + VPS | Medium | $5-20/mo | Small production |\n| AWS Lambda | Medium | Pay-per-use | Spiky traffic |\n| Kubernetes | High | $50+/mo | Enterprise |",
+    "must_contain": [
+      "Streamlit Cloud",
+      "AWS Lambda",
+      "Kubernetes",
+      "Enterprise"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q014",
+    "category": "cite",
+    "query": "With a $5 daily budget and 2000 queries/day, can you afford to switch to the better prompt version?",
+    "ideal_answer": "Yes — the worked exam question computes V1 at $3.60/day and V2 at $4.20/day, and concludes both fit within the $5 budget, so the switch is affordable.",
+    "ideal_context": "**Exam Question 🎓:** V2 is 17% more expensive but 6% better. Your daily budget is $5. You get 2000 queries/day. Can you afford to switch? (Answer: V1 costs $3.60/day, V2 costs $4.20/day. Yes, within budget.)",
+    "must_contain": [
+      "$3.60/day",
+      "$4.20/day",
+      "Yes, within budget"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q015",
+    "category": "cite",
+    "query": "What does the corpus say is the difference between RAG and fine-tuning?",
+    "ideal_answer": "RAG improves what the model reads; fine-tuning improves how the model behaves and what it knows itself. In production you often want both — a tuned generator fed by a retrieval stack.",
+    "ideal_context": "> **Why this step exists:** RAG improves *what the model reads*. Fine-tuning improves *how the\n> model behaves and what it knows itself*. In production you often want both — a tuned generator\n> (this step) fed by a retrieval stack (Steps 4–7).",
+    "must_contain": [
+      "what the model reads",
+      "model behaves and what it knows itself",
+      "tuned generator"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q016",
+    "category": "cite",
+    "query": "What are the three QLoRA tricks?",
+    "ideal_answer": "QLoRA's three tricks are 4-bit NF4 quantization, double quantization, and paged optimizers.",
+    "ideal_context": "3. **QLoRA:** What are the three tricks (4-bit NF4, double quantization, paged optimizers)?",
+    "must_contain": [
+      "4-bit NF4",
+      "double quantization",
+      "paged optimizers"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q017",
+    "category": "cite",
+    "query": "Why does DPO skip the reward model?",
+    "ideal_answer": "RLHF/PPO needs policy/ref/value/reward models and manages the KL vs reward-hacking tradeoff; DPO instead trains directly on preference pairs — no reward model needed.",
+    "ideal_context": "6. **Alignment** — RLHF/PPO (policy/ref/value/reward, advantage, KL vs reward hacking);\n   **DPO** (no reward model, preference pairs).",
+    "must_contain": [
+      "KL vs reward hacking",
+      "no reward model, preference pairs"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q018",
+    "category": "cite",
+    "query": "What are the recorded cost numbers for RAG_ANSWER_V1 in the cost-per-version table?",
+    "ideal_answer": "RAG_ANSWER_V1 records template_tokens 45, avg_input_tokens 500, avg_output_tokens 200, cost_per_query $0.0018 (from (500+45)×$0.000003 + 200×$0.000006), queries_today 450, and total_cost_today $0.81.",
+    "ideal_context": "COST_PER_VERSION = {\n    \"RAG_ANSWER_V1\": {\n        \"template_tokens\": 45,        # Tokens in the template itself\n        \"avg_input_tokens\": 500,      # Average input per query\n        \"avg_output_tokens\": 200,     # Average output per query\n        \"cost_per_query\": 0.0018,     # (500 + 45) × $0.000003 + 200 × $0.000006\n        \"queries_today\": 450,\n        \"total_cost_today\": 0.81,",
+    "must_contain": [
+      "template_tokens",
+      "0.0018",
+      "queries_today",
+      "total_cost_today"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q019",
+    "category": "cite",
+    "query": "In the seven-step learning path, what does Step 4 (Multi-Source + Routing) add?",
+    "ideal_answer": "Step 4 adds multiple document types and builds query routing.",
+    "ideal_context": "Step 4: Multi-Source + Routing\n  → Add multiple document types\n  → Build query routing",
+    "must_contain": [
+      "Multi-Source + Routing",
+      "Add multiple document types",
+      "Build query routing"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q020",
+    "category": "cite",
+    "query": "How do prompt versions get promoted to production through the shared registry?",
+    "ideal_answer": "Candidates live in the same shared store as staging/draft records (e.g. RAG_ANSWER_V3_shadow) and never ship until live evidence promotes them; evidence drives promotion when shadow/A-B scores beat the incumbent (compare_versions()); approved versions are immutable — V1 stays byte-identical forever.",
+    "ideal_context": "1. **Candidates live in the registry** — `RAG_ANSWER_V3_shadow` is a `staging`/`draft` record in the **same shared store** built in Step 1; it never ships until live evidence promotes it.\n2. **Rollback is a data op** — production answers come from `registry.get(prompt_id, approved_only=True)`; rolling back = flipping status in `registry.json`. No code redeploy, no binary rollback.\n3. **Evidence drives promotion** — promote only when shadow/A-B scores beat the incumbent; the registry records those scores per version (`compare_versions()`).\n4. **Approved versions immutable** — V1 stays byte-identical forever; cost-per-version and eval comparisons keep their meaning.",
+    "must_contain": [
+      "staging",
+      "Evidence drives promotion",
+      "V1 stays byte-identical forever"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q021",
+    "category": "cite",
+    "query": "How does the output guardrail verify citations, and what happens on failure?",
+    "ideal_answer": "OutputGuardrails checks 'are citations real?' via verify_citations(answer, context) — protecting against invented page numbers — and returns False with 'Invalid citations' when verification fails.",
+    "ideal_context": "        # Citation check: are citations real?\n        if not self.verify_citations(answer, context):\n            return False, \"Invalid citations\"",
+    "must_contain": [
+      "verify_citations",
+      "Invalid citations"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q022",
+    "category": "cite",
+    "query": "What guardrail block counts did the monitoring dashboard example record?",
+    "ideal_answer": "The dashboard records 12 prompt-injection blocks, 45 off-topic blocks, and 8 rate-limited requests.",
+    "ideal_context": "│  Guardrail blocks:                               │\n│  - Prompt injection: 12                          │\n│  - Off-topic: 45                                 │\n│  - Rate limited: 8                               │",
+    "must_contain": [
+      "Prompt injection: 12",
+      "Off-topic: 45",
+      "Rate limited: 8"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q023",
+    "category": "cite",
+    "query": "What is the Step-8 roadmap order?",
+    "ideal_answer": "The roadmap is SFT (LoRA/QLoRA) → DPO alignment → Guardrails → Red team → Patch → loop.",
+    "ideal_context": "SFT (LoRA/QLoRA) ──► DPO alignment ──► Guardrails ──► Red team ──► Patch ──► (loop)",
+    "must_contain": [
+      "SFT (LoRA/QLoRA)",
+      "DPO alignment",
+      "Guardrails",
+      "Red team",
+      "Patch"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q024",
+    "category": "cite",
+    "query": "Name the catastrophic-forgetting mitigations the step-8 objectives record.",
+    "ideal_answer": "Under 'Stability & forgetting' the objectives list gradient clipping, LR warm-up/decay, and catastrophic-forgetting mitigations: rehearsal, regularization, weight averaging, and freezing.",
+    "ideal_context": "3. **Stability & forgetting** — gradient clipping, LR warm-up/decay, catastrophic-forgetting\n   mitigations (rehearsal, regularization, weight averaging, freezing).",
+    "must_contain": [
+      "rehearsal",
+      "regularization",
+      "weight averaging",
+      "freezing"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q025",
+    "category": "abstain",
+    "query": "After going through all seven steps, how many prompt versions does the registry hold?",
+    "ideal_answer": "Not recorded in the corpus. The Step-7 exam poses this as a self-check ('You've gone through 7 steps. How many prompt versions do you have? How do you manage them?') but nowhere states an actual count — the registry's design (candidates as staging/draft, approved immutable) is documented, the number is not. Do not invent one.",
+    "ideal_context": "6. **Prompt Registry:** You've gone through 7 steps. How many prompt versions do you have? How do you manage them?",
+    "must_contain": [
+      "How many prompt versions do you have?"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
+    "id": "S3-Q026",
+    "category": "conflict",
+    "query": "What is the cost premium of the better-scoring prompt version in the A/B comparison — 50% or 17%?",
+    "ideal_answer": "The corpus records both numbers because they compare different version pairs. The shadow/A-B block says 'V3 is 6% better but 50% more expensive' than the current version (0.002 → 0.003 per query); the cost-optimization block says V2 is '17% more expensive for 6% quality improvement' over V1 (0.0018 → 0.0021). A faithful answer must name the version pair before quoting a single percentage.",
+    "ideal_context": "# After running A/B test for 1 week:\nprod_metrics = {\"avg_score\": 0.82, \"cost_per_query\": 0.002}\nv3_metrics = {\"avg_score\": 0.87, \"cost_per_query\": 0.003}\n\n# Decision: V3 is 6% better but 50% more expensive\n# → Promote if quality matters more than cost\n# → Keep as candidate if cost is critical",
+    "must_contain": [
+      "6% better but 50% more expensive",
+      "17% more expensive for 6% quality improvement"
+    ],
+    "source": "S3",
+    "path": "data/docs/s3_lifecycle_bundle.md"
+  },
+  {
     "id": "S4-Q001",
     "category": "cite",
     "query": "Why is the judge LLM separate from the generator LLM?",
@@ -852,6 +1194,356 @@
       "LLM_BASE_URL",
       "a run could be scored by a different judge than",
       "invalidating A/B comparisons"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q002",
+    "category": "cite",
+    "query": "Why is generate_llm() memoized?",
+    "ideal_answer": "Constructing the provider (clients, retries, keys) is expensive/stateful — per-request construction would re-init network clients every time. Memoization means it is constructed once per process and reused; tests reset it via singleton-reset fixtures.",
+    "ideal_context": "**A:** Constructing the provider (clients, retries, keys) is expensive/stateful; per-request\nconstruction would re-init network clients every time. Memoization = constructed once per\nprocess, reused. Tests reset via singleton-reset fixtures.",
+    "must_contain": [
+      "expensive/stateful",
+      "constructed once per",
+      "singleton-reset fixtures"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q003",
+    "category": "degrade",
+    "query": "What happens when Groq rate-limits a Step-4 generation request?",
+    "ideal_answer": "The fallback to Gemini is deliberately narrow: rate limits are transient/expected, so the design is retry-once-then-fallback. A 400 (malformed prompt) or auth failure won't succeed elsewhere — falling through masks real bugs, so those propagate. RATE_LIMIT_ERRORS is a tuple because groq.RateLimitError is NOT a subclass of openai.RateLimitError.",
+    "ideal_context": "**A:** Groq is fast+cheap for generate; Gemini is the resilience net. The fallback is **narrow**\nby design: rate limits are transient/expected (Groq throttles) → retry-once-then-fallback is\ncorrect. But a 400 (malformed prompt) or auth failure won't succeed elsewhere — falling through\nthere masks real bugs, so those propagate. `RATE_LIMIT_ERRORS` is a tuple because\n`groq.RateLimitError` is NOT a subclass of `openai.RateLimitError`.",
+    "must_contain": [
+      "retry-once-then-fallback",
+      "those propagate",
+      "RATE_LIMIT_ERRORS",
+      "groq.RateLimitError"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q004",
+    "category": "cite",
+    "query": "Why does the judge use one fixed LLM separate from the generator?",
+    "ideal_answer": "Eval scores must be consistent and reproducible. The generate path (Groq→Gemini) can switch models; if the judge followed that chain, a run could be scored by a different judge than the baseline — invalidating A/B comparisons. A single fixed judge (Qwen/Qwen2.5-7B-Instruct-AWQ) keeps scores comparable across runs.",
+    "ideal_context": "**A:** Eval scores must be **consistent and reproducible**. The generate path (Groq→Gemini) can\nswitch models; if the judge followed that chain, a run could be scored by a different judge than\nthe baseline — invalidating A/B comparisons. A single fixed judge",
+    "must_contain": [
+      "consistent and reproducible",
+      "invalidating A/B comparisons",
+      "Qwen/Qwen2.5-7B-Instruct-AWQ"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q005",
+    "category": "cite",
+    "query": "Why is DeepEvalJudge built on DeepEvalBaseLLM, and what does generate() return?",
+    "ideal_answer": "DeepEvalBaseLLM is the hook DeepEval uses to call our model for LLM-as-judge metrics. Returning (payload, latency_seconds) is the contract the 3-level suite needs — payload is the raw JSON to log, latency feeds regression (Task 18). Single-invoke design does one JSON-mode call and salvages {\"output\": text} on malformed output instead of retrying the judge.",
+    "ideal_context": "**A:** `DeepEvalBaseLLM` is the hook DeepEval uses to call *our* model for LLM-as-judge metrics.\nReturning payload + latency is the contract the 3-level suite needs — payload is the raw JSON to\nlog, latency feeds regression (Task 18). Single-invoke design does one JSON-mode call and\nsalvages `{\"output\": text}` on malformed output instead of retrying the judge.",
+    "must_contain": [
+      "DeepEvalBaseLLM",
+      "payload is the raw JSON to",
+      "latency feeds regression",
+      "JSON-mode call"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q006",
+    "category": "cite",
+    "query": "Why are the test_config.py tests offline, and what is the tradeoff?",
+    "ideal_answer": "No network/keys in CI: provider/persistence are tested with mocks and deterministic inputs. The tradeoff is that real API behavior is not tested — a real-response smoke lives behind env vars. Offline tests catch wiring/caching/contract bugs but can't catch a changed upstream API.",
+    "ideal_context": "**A:** No network/keys in CI. Provider/persistence tested with mocks and deterministic inputs.\nTradeoff: we do NOT test real API behavior — a real-response smoke lives behind env vars.\nOffline tests catch wiring/caching/contract bugs; they can't catch a changed upstream API.",
+    "must_contain": [
+      "mocks and deterministic inputs",
+      "can't catch a changed upstream API"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q007",
+    "category": "cite",
+    "query": "Why are secrets env-only while model defaults live in code?",
+    "ideal_answer": "Keys must never be committed. .env holds real values for manual runs; config.py holds model-name defaults (no keys). That keeps 'safe to commit' vs 'never commit' crisp, and .env.example documents the shape.",
+    "ideal_context": "**A:** Keys must never be committed. `.env` holds real values for manual runs; `config.py` holds\nmodel-name **defaults** (no keys). Keeps \"safe to commit\" vs \"never commit\" crisp.",
+    "must_contain": [
+      "Keys must never be committed",
+      "model-name",
+      "safe to commit"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q008",
+    "category": "cite",
+    "query": "Why is recursive_split the default chunking strategy?",
+    "ideal_answer": "It recurses down _RECURSIVE_SEPARATORS = [\"\\n\\n\", \"\\n\", \". \", \" \", \"\"] (paragraphs → sentences → words → chars), respecting natural boundaries so chunks stay readable/coherent for generic content; the other four strategies are for known content types.",
+    "ideal_context": "**A:** It recurses down `_RECURSIVE_SEPARATORS = [\"\\n\\n\", \"\\n\", \". \", \" \", \"\"]` (paragraphs →\nsentences → words → chars), respecting natural boundaries. Keeps chunks readable/coherent for\ngeneric content; the other four strategies are for known content types.",
+    "must_contain": [
+      "_RECURSIVE_SEPARATORS",
+      "paragraphs",
+      "sentences → words → chars"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q009",
+    "category": "cite",
+    "query": "How does markdown_split keep context across chunks?",
+    "ideal_answer": "It splits on H1–H3 and injects the header path into every chunk — headers are never standalone, never bleed, so each chunk carries where it came from with no parent lookup. Measured A/B: 87→86 chunks with header injection.",
+    "ideal_context": "**Q3. How does `markdown_split` keep context across chunks?**\n**A:** Splits on H1–H3, injecting the **header path into every chunk** (headers never standalone,\nnever bleed). The section path in every chunk tells the generator *where* it came from — no\nparent lookup. A/B: 87→86 chunks with header injection.",
+    "must_contain": [
+      "header path into every chunk",
+      "headers never standalone",
+      "87→86 chunks"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q010",
+    "category": "cite",
+    "query": "Is deterministic_embedder a chunking strategy?",
+    "ideal_answer": "No — TRAP. It is the offline pseudo-embedding for Layer-1 structural evals: hash-projects each word into a fixed-dim vector and normalizes. SPLITTERS keys exactly five strategies (recursive, character, semantic, markdown, code); strategy='deterministic_embedder' raises ValueError. It is the default embedder the semantic strategy uses when none is injected.",
+    "ideal_context": "**A:** It's the offline pseudo-embedding for Layer-1 structural evals — hash-projects each word\ninto a fixed-dim vector, normalizes. `SPLITTERS` keys exactly five strategies\n(`recursive, character, semantic, markdown, code`); `strategy='deterministic_embedder'` raises\n`ValueError`. It's the **default embedder the `semantic` strategy uses** when none is injected.",
+    "must_contain": [
+      "SPLITTERS",
+      "five strategies",
+      "ValueError"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q011",
+    "category": "cite",
+    "query": "Why is semantic chunking excluded from chunking_goldens.json despite being offline-deterministic?",
+    "ideal_answer": "Golden bounds written against the stub would mislead once real embedder boundaries differ. Semantic is gated by (a) determinism unit tests now and (b) a Layer-2 cost/quality decision with the real embedder later — goldens are contracts with reality.",
+    "ideal_context": "**A:** Golden bounds written against the stub would mislead once real embedder boundaries differ.\nSemantic is gated by (a) determinism unit tests now, (b) a Layer-2 cost/quality decision with\nthe real embedder later. Goldens are *contracts with reality*.",
+    "must_contain": [
+      "would mislead",
+      "Layer-2 cost/quality decision",
+      "contracts with reality"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q012",
+    "category": "cite",
+    "query": "What can Layer-1 golden bounds tell you, and what can they never tell you?",
+    "ideal_answer": "The golden schema is structural (chunk-count in [min,max], must_contain substring surviving in a single chunk) — it verifies 'didn't break', not ranking. Which strategy retrieves best is a Layer-2 question (Tasks 12/13): hold everything constant, vary strategy, read Contextual Recall vs Precision/Relevancy.",
+    "ideal_context": "**A:** Golden schema is structural (`chunk-count ∈ [min,max]`, `must_contain` substring survives\n*in a single chunk*). It verifies \"didn't break\", not ranking. Ranking is Layer-2 (Tasks 12/13):",
+    "must_contain": [
+      "structural",
+      "didn't break",
+      "Layer-2"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q013",
+    "category": "cite",
+    "query": "What cost gate does the professor put on semantic chunking?",
+    "ideal_answer": "The cost gate: 'Start with sliding-window and move to semantic only when retrieval quality justifies the cost.' Sliding-window overlap is the cheap go-forward second baseline.",
+    "ideal_context": "- **Cost gate**: \"Start with sliding-window and move to semantic only when retrieval quality\n  justifies the cost.\"",
+    "must_contain": [
+      "Start with sliding-window",
+      "justifies the cost"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q014",
+    "category": "cite",
+    "query": "What does the professor's classic failure-mode exam question predict when recall goes mediocre after swapping embedders?",
+    "ideal_answer": "Most likely chunk sizes too large, Euclidean distance, or a forgotten query-passage prefix — or the document-parsing/chunking step is losing structure. The embedding model is almost the last knob to turn.",
+    "ideal_context": "- **Classic failure-mode exam question**: recall mediocre after swapping to a fancier embedder —\n  most likely **chunks too large / Euclidean distance / forgot query-passage prefix**; or the\n  document-parsing/chunking step is losing structure.",
+    "must_contain": [
+      "chunks too large",
+      "Euclidean distance",
+      "query-passage prefix"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q015",
+    "category": "cite",
+    "query": "What scale boundary does the course material put between Faiss and ChromaDB?",
+    "ideal_answer": "'Faiss scales to billions, ChromaDB to millions.' The corpus then defends picking Chroma + a pedagogical mini-IVF because the corpus is far below the million-vector boundary, with metadata where-filters as the real constraint.",
+    "ideal_context": "- Indices: IVF, PQ, IVF+PQ, HNSW; \"Faiss scales to billions, **ChromaDB to millions**.\"",
+    "must_contain": [
+      "Faiss scales to billions",
+      "ChromaDB to millions"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q016",
+    "category": "cite",
+    "query": "Why is L2-normalization inside the embedder?",
+    "ideal_answer": "Similarity is cosine = dot product of normalized vectors; normalizing in one place means every consumer gets unit vectors for free and can't forget, and the norm is assertable in Layer-1 evals. The zero vector stays all-zero (norm 0 → no NaN).",
+    "ideal_context": "**A:** Similarity is **cosine** = dot product of normalized vectors. Normalizing in one place\nmeans every consumer gets unit vectors for free and can't forget — and the norm is assertable\nin Layer-1 evals. Zero vector stays all-zero (norm 0 → no NaN).",
+    "must_contain": [
+      "dot product of normalized vectors",
+      "unit vectors",
+      "norm 0 → no NaN"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q017",
+    "category": "cite",
+    "query": "How is the embedding dimension handled — declared or observed?",
+    "ideal_answer": "TRAP: observed, not declared. dim() returns None before the first embed; _coerce records it. There is no dimension=1024 constant; mixed dims or drift raise ValueError. The contract must survive a swapped model (e.g. a future 768-d entry).",
+    "ideal_context": "**A:** **Observed, not declared.** `dim()` returns None before the first embed; `_coerce` records\nit. No `dimension=1024` constant. Mixed dims or drift raise `ValueError`. The contract must\nsurvive a swapped model (e.g. a future 768-d entry).",
+    "must_contain": [
+      "Observed, not declared",
+      "dimension=1024",
+      "Mixed dims or drift raise"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q018",
+    "category": "cite",
+    "query": "Where does Qwen3Embeddings get its model name, and how would you swap it?",
+    "ideal_answer": "embed_model_name(): EMBED_MODEL env override, else default n24q02m/Qwen3-Embedding-0.6B-ONNX. Change EMBED_MODEL and everything rebuilds via get_embedder(\"qwen3\"); a new provider is a registered class in EMBEDDERS (unknown → ValueError), the same registry pattern as SPLITTERS.",
+    "ideal_context": "**A:** `embed_model_name()`: `EMBED_MODEL` env override, else default\n`n24q02m/Qwen3-Embedding-0.6B-ONNX`. Change `EMBED_MODEL` → everything rebuilds via\n`get_embedder(\"qwen3\")`. New provider = register class in `EMBEDDERS`, `get_embedder(name)`",
+    "must_contain": [
+      "n24q02m/Qwen3-Embedding-0.6B-ONNX",
+      "EMBED_MODEL",
+      "get_embedder"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q019",
+    "category": "cite",
+    "query": "How do Layer-1 evals test a 1024-d neural embedder without downloading it?",
+    "ideal_answer": "Qwen3Embeddings.__init__(backend=...) is the test seam; the real TextEmbedding builds lazily on first use. eval_embeddings.py injects _HashBackend wrapping the 128-d deterministic_embedder, so the structural contract (count/dim/unit-norm/query-parity/factory/config) is verified at zero cost; real-model quality is measured in Task 12 (Layer-2).",
+    "ideal_context": "**A:** `Qwen3Embeddings.__init__(backend=...)` is the test seam; the real `TextEmbedding` builds\n**lazily on first use**. `eval_embeddings.py` injects `_HashBackend` wrapping the 128-d\n`deterministic_embedder`. Structural contract (count/dim/unit-norm/query-parity/factory/config)",
+    "must_contain": [
+      "test seam",
+      "lazily on first use",
+      "128-d"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q020",
+    "category": "cite",
+    "query": "How is HNSW tuned, and what is the trap about the knobs?",
+    "ideal_answer": "IndexConfig.chroma_metadata sets hnsw:space / M / construction_ef / search_ef, applied at get_or_create_collection time — knob changes are config, not code. Trap: metadata is honored only at collection creation, so a persisted collection keeps its original knobs.",
+    "ideal_context": "**A:** `IndexConfig.chroma_metadata` → `hnsw:space / M / construction_ef / search_ef` applied at\n`get_or_create_collection` time. Knob changes = config, not code. **Trap: metadata honored only\nat collection creation** — a persisted collection keeps original knobs.",
+    "must_contain": [
+      "IndexConfig.chroma_metadata",
+      "metadata honored only",
+      "persisted collection keeps original knobs"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q021",
+    "category": "cite",
+    "query": "How does search turn Chroma distances into scores?",
+    "ideal_answer": "similarity = float(1.0 - distance), filtered by 'if similarity < min_score: break' on the ascending-distance-sorted list, returned as {text, metadata, score}. Because the collection is cosine and vectors are normalized, distance = 1 - cosine so similarity is exactly cosine; the break needs distance-ascending order and top_k is clamped to collection.count().",
+    "ideal_context": "**A:** `similarity = float(1.0 - distance)`, filtered `if similarity < min_score: break`\n(ascending-distance-sorted break), returned as `{text, metadata, score}`. Because the collection\nis cosine + vectors normalized, distance = `1 - cosine`, so similarity is exactly cosine. The\n`break` needs distance-ascending order; `top_k` clamped to `collection.count()`.",
+    "must_contain": [
+      "1.0 - distance",
+      "similarity < min_score",
+      "collection.count()"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q022",
+    "category": "cite",
+    "query": "Why does query use embed_query while add_documents uses embed_documents?",
+    "ideal_answer": "Task-04 instruction-prefix asymmetry (FastEmbed/Qwen3): documents get the doc prefix via embed(); queries get the task-instruction prefix via query_embed(). Flipping either side pollutes Layer-2 A/B with ~1–5% retrieval-quality noise on every strategy.",
+    "ideal_context": "**A:** Task-04 instruction-prefix asymmetry (FastEmbed/Qwen3): documents get the doc prefix via\n`embed()`; queries get the task-instruction prefix via `query_embed()`. Flipping either side\npollutes Layer-2 A/B with ~1–5% retrieval-quality noise on every strategy.",
+    "must_contain": [
+      "instruction-prefix asymmetry",
+      "Flipping either side",
+      "1–5% retrieval-quality noise"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q023",
+    "category": "cite",
+    "query": "Why write a mini-IVF by hand when Chroma (HNSW) is production, and when does it equal brute force?",
+    "ideal_answer": "It is the build-it-by-hand companion to 'how does the production index work': fit runs k-means++; query probes nprobe nearest centroids and scans only those buckets; at nprobe == nlist it equals brute force. The eval sweep quantifies it (nlist=16: 0.930@1 probe → 1.000@4); Faiss-IVF stays a documented slot-in.",
+    "ideal_context": "**A:** Build-it-by-hand companion to \"how does the production index work\". `fit` runs k-means++;\n`query` probes `nprobe` nearest centroids and scans only those buckets; at `nprobe == nlist` it\nequals brute force. Eval sweep turns it into a number (nlist=16: 0.930@1 probe → 1.000@4).",
+    "must_contain": [
+      "k-means++",
+      "nprobe == nlist",
+      "0.930@1 probe → 1.000@4"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q024",
+    "category": "cite",
+    "query": "Which metric engine wins for which need in the dual-backend decision?",
+    "ideal_answer": "DeepEval wins as the cheap always-on CI gate over golden tests (assert thresholds in pytest); Ragas wins for the deep RAG metric battery (20+, e.g. contextual precision) plus synthetic testset generation for Steps 5–7. Both use the same config-driven judge and produce the same neutral Report.",
+    "ideal_context": "| Cheap always-on CI gate over golden tests (assert thresholds in pytest) | **DeepEval** |\n| Deep RAG metric battery (20+, e.g. contextual precision) + synthetic testset gen (Steps 5–7) | **Ragas** |",
+    "must_contain": [
+      "assert thresholds in pytest",
+      "Deep RAG metric battery",
+      "testset gen"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q025",
+    "category": "cite",
+    "query": "Why is Ragas pinned to 0.3.1 with langchain-community==0.3.31?",
+    "ideal_answer": "Ragas 0.3.1 is the last of the legacy API line — it imports langchain_community.chat_models.vertexai, which vanished in 0.4.x, so it stays on langchain-community==0.3.31 (a packaging pin, not a choice). The upgrade path touches only backend_ragas.py.",
+    "ideal_context": "- **Ragas pinned to 0.3.1** — last of the legacy API line; it imports\n  `langchain_community.chat_models.vertexai`, which vanished in 0.4.x → stay on\n  `langchain-community==0.3.31` (packaging pin, not a choice). Upgrade path: only",
+    "must_contain": [
+      "Ragas pinned to 0.3.1",
+      "vanished in 0.4.x",
+      "0.3.31"
+    ],
+    "source": "S4",
+    "path": "data/docs/s4_qa_deep_dives.md"
+  },
+  {
+    "id": "S4-Q026",
+    "category": "cite",
+    "query": "What would you make a GATE vs a GUARDRAIL in the regression harness?",
+    "ideal_answer": "A gate must not regress (faithfulness pass-rate — hard fail). A guardrail is a soft target (latency P95 — a drop yields REVIEW). Info metrics are tracked but never drive the verdict.",
+    "ideal_context": "**A:** A **gate** must not regress (faithfulness pass-rate — hard fail). A **guardrail** is a soft\ntarget (latency P95 — drop → REVIEW). Info metrics tracked but never drive the verdict.",
+    "must_contain": [
+      "must not regress",
+      "faithfulness pass-rate",
+      "latency P95",
+      "REVIEW"
     ],
     "source": "S4",
     "path": "data/docs/s4_qa_deep_dives.md"
@@ -894,6 +1586,318 @@
     "must_contain": [
       "Rules/embedding/LLM",
       "waterfall"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q004",
+    "category": "cite",
+    "query": "Which evaluator backend is the default in the eval registry?",
+    "ideal_answer": "The registry get_backend(\"deepeval\" | \"ragas\") lives in eval/contracts/registry.py with DEFAULT_BACKEND = \"deepeval\".",
+    "ideal_context": "- **`get_backend(\"deepeval\" | \"ragas\")`** registry in `eval/contracts/registry.py`\n  (`DEFAULT_BACKEND = \"deepeval\"`).",
+    "must_contain": [
+      "get_backend",
+      "DEFAULT_BACKEND"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q005",
+    "category": "cite",
+    "query": "Why does version pinning matter for the two eval engines?",
+    "ideal_answer": "DeepEval is pinned (==2.9.3) and Ragas is floored (>=0.3.1, lockfile-resolved to 0.3.1) precisely because an upstream metric-math change would otherwise look identical to a real regression in the harness (Task 18) — tracked as GAP_REGISTER.md §D row #27.",
+    "ideal_context": "- **Version pinning matters**: DeepEval is pinned (`==2.9.3`) and Ragas is floored (`>=0.3.1`,\n  lockfile-resolved to 0.3.1) precisely because an upstream metric-math change would otherwise\n  look identical to a real regression in the harness (Task 18) — see `GAP_REGISTER.md` §D row #27.",
+    "must_contain": [
+      "==2.9.3",
+      ">=0.3.1",
+      "metric-math change",
+      "row #27"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q006",
+    "category": "cite",
+    "query": "What is the Ragas name for the metric our schema calls context_precision?",
+    "ideal_answer": "Ragas 0.3.x spells it ContextPrecision, while DeepEval spells it ContextualPrecisionMetric — same math, different casing; both mean 'relevant chunks ranked first'.",
+    "ideal_context": "| `context_precision` | relevant chunks ranked first | ContextualPrecisionMetric | ContextPrecision |",
+    "must_contain": [
+      "context_precision",
+      "ContextualPrecisionMetric",
+      "ContextPrecision"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q007",
+    "category": "cite",
+    "query": "What does run_backends return, and what does the seam's protocol require?",
+    "ideal_answer": "run_backends(samples, metric_specs, backends=[...]) runs the same cases through one or more engines and returns {backend_name: Report}. A MetricBackend protocol must expose measure(samples, metric_specs) → Report and validate(metric_specs).",
+    "ideal_context": "- **`run_backends(samples, metric_specs, backends=[...])`** — runs the same cases through one or\n  more engines and returns `{backend_name: Report}`.",
+    "must_contain": [
+      "run_backends",
+      "backend_name"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q008",
+    "category": "cite",
+    "query": "What happens if EMBED_MODEL changes after the vector index is built?",
+    "ideal_answer": "The corpus warns that changing EMBED_MODEL after the index is built requires a full re-embed — see GAP_REGISTER.md #25 for the drift playbook.",
+    "ideal_context": "| `EMBED_MODEL` | yes | embedding model id (auto-downloaded on first run) — **changing this value after the index is built requires a full re-embed; see `GAP_REGISTER.md` #25** |",
+    "must_contain": [
+      "EMBED_MODEL",
+      "full re-embed",
+      "#25"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q009",
+    "category": "cite",
+    "query": "What routing ladder does Step 4 use, and what embedding-similarity threshold is cited?",
+    "ideal_answer": "Routing is a rules / embedding-sim / LLM waterfall — cheap strategies first, elevate to an LLM classifier as needed — with the embedding-sim threshold ~0.45 from class (Task 06).",
+    "ideal_context": "| **Routing: rules / embedding-sim / LLM waterfall** | Cheap strategies first, elevate to LLM classifier as needed; embedding-sim threshold ~0.45 from class (Task 06). |",
+    "must_contain": [
+      "Cheap strategies first",
+      "embedding-sim threshold ~0.45"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q010",
+    "category": "cite",
+    "query": "Which pending eval module must include a misrouted-source case?",
+    "ideal_answer": "eval_query MUST include a misrouted-source case — see GAP_REGISTER.md #24 (it lands with Task 12, alongside eval_retriever, eval_retriever_fusion, and eval_generator).",
+    "ideal_context": "#   L1:  eval_retriever, eval_retriever_fusion, eval_generator, eval_query\n#         (eval_query MUST include a misrouted-source case — see GAP_REGISTER.md #24)",
+    "must_contain": [
+      "eval_query",
+      "misrouted-source case",
+      "#24"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q011",
+    "category": "cite",
+    "query": "How many unit tests does the Step-4 core pass, and what runs only with the integration marker?",
+    "ideal_answer": "uv run pytest -q passes 102 unit tests offline; uv run pytest -m integration exercises the real ONNX embedding + Chroma roundtrip.",
+    "ideal_context": "uv run pytest -q                      # 102 unit tests, offline\nuv run pytest -m integration          # real ONNX embedding + Chroma roundtrip",
+    "must_contain": [
+      "102 unit tests",
+      "integration",
+      "Chroma roundtrip"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q012",
+    "category": "cite",
+    "query": "What is Step 9's one-line thesis?",
+    "ideal_answer": "'Boring infra, smart gates.' Step 9 re-reads the entire step1–8 journey through the LLMOps operating layer, making LLMOps the spine of the story, not a chapter bolted on at the end.",
+    "ideal_context": "**One-line thesis:** *\"Boring infra, smart gates.\"* Step 9 re-reads the entire journey",
+    "must_contain": [
+      "Boring infra, smart gates"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q013",
+    "category": "cite",
+    "query": "Who writes application code in the step9 repo?",
+    "ideal_answer": "The learner writes every line of application code; agents write markdown only (docs, task contracts, interview Q&A, review verdicts, read-only checks). Agents never write code into src/, tests/, jupyter_notebook/, or CI workflows.",
+    "ideal_context": "**Agents write markdown only. The learner writes every line of application code.**\nAgents may: write docs, task contracts, interview Q&A, review verdicts, run read-only\nchecks. Agents never write code into `src/`, `tests/`, `jupyter_notebook/`, or CI workflows.",
+    "must_contain": [
+      "Agents write markdown only",
+      "The learner writes every line of application code",
+      "never write code into"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q014",
+    "category": "cite",
+    "query": "What does Module 1 (Data & testset) of Step 9 cover?",
+    "ideal_answer": "Mod 1 is 'Data & testset (goldens)' under pillar 1 — corpus prep + golden questions.",
+    "ideal_context": "| 1 | Data & testset (goldens) | 1 | corpus prep + golden questions |",
+    "must_contain": [
+      "Data & testset",
+      "corpus prep + golden questions"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q015",
+    "category": "cite",
+    "query": "What CI gate does the Step-9 free stack use, and what is the pillar-6 budget?",
+    "ideal_answer": "GitHub Actions runs an offline-only gate; free-tier quotas are the pillar-6 budget — the constraint is the lesson.",
+    "ideal_context": "candidate — *verify in NB-000, not assumed*) · HF Spaces (Gradio) demo · GitHub Actions\noffline-only gate. **Free-tier quotas are your pillar-6 budget** — the constraint is the lesson.",
+    "must_contain": [
+      "GitHub Actions",
+      "offline-only gate",
+      "Free-tier quotas are your pillar-6 budget"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q016",
+    "category": "cite",
+    "query": "What backs the Step-4 three-level evaluation suite?",
+    "ideal_answer": "The suite is backed by two metric engines (DeepEval + Ragas) and a regression harness — proving it works with a three-level evaluation suite.",
+    "ideal_context": "citing where each answer came from, and proving it works with a **three-level evaluation suite\nbacked by *two* metric engines (DeepEval + Ragas)** and a regression harness.",
+    "must_contain": [
+      "three-level evaluation suite",
+      "DeepEval + Ragas",
+      "regression harness"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q017",
+    "category": "cite",
+    "query": "What is the notebook-first development path, and when does code promote?",
+    "ideal_answer": "Loaders → chunking → embedding → (search) are explored in jupyter_notebook/ plants before promoting into src/ — plain LangChain cells first, promotion only after the loop is proven.",
+    "ideal_context": "| Notebook-first dev | Loaders → chunking → embedding → (search) explored in `jupyter_notebook/` before promoting to `src/` | ✅ exercise + reference notebook |",
+    "must_contain": [
+      "jupyter_notebook",
+      "before promoting to `src/`"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q018",
+    "category": "cite",
+    "query": "What does hybrid retrieval combine, and in what order?",
+    "ideal_answer": "Hybrid retrieval is dense (cosine) + sparse (BM25) → fuse → rerank, returning top-k with source metadata.",
+    "ideal_context": "│  dense (cosine) + sparse (BM25) → fuse → rerank      │",
+    "must_contain": [
+      "dense (cosine) + sparse (BM25)",
+      "fuse → rerank"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q019",
+    "category": "cite",
+    "query": "What are the five chunking strategies behind the Chunker facade?",
+    "ideal_answer": "The five strategies are character, recursive, markdown, semantic, and code, behind one Chunker facade (implemented + tested).",
+    "ideal_context": "| Text chunking | 5 strategies (`character`, `recursive`, `markdown`, `semantic`, `code`) behind one `Chunker` facade | ✅ implemented + tested |",
+    "must_contain": [
+      "`character`, `recursive`, `markdown`, `semantic`, `code`",
+      "Chunker` facade"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q020",
+    "category": "cite",
+    "query": "What is the 'code delta' claim of Step 9?",
+    "ideal_answer": "The code delta is tiny: config-as-package, judge wiring, the CI gate, the demo UI. Everything deep (mini-IVF, dual-backend eval, regression harness) stays a cross-reference to step4 — you re-learn the patterns, you do not duplicate the machinery.",
+    "ideal_context": "The map (see `doc/JOURNEY_MAP.md`) covers all of step1–8. The **code delta is tiny**:\nconfig-as-package, judge wiring, the CI gate, the demo UI. Everything deep (mini-IVF,",
+    "must_contain": [
+      "code delta is tiny",
+      "config-as-package",
+      "judge wiring"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q021",
+    "category": "cite",
+    "query": "What decides which source(s) a question hits in the Step-4 router, and what are the source tags?",
+    "ideal_answer": "The router uses Rules/embedding/LLM to decide which source(s) to query; source tags are text / web / pdf / db.",
+    "ideal_context": "│  Rules/embedding/LLM: which source(s) to query?       │\n│  source tags: text / web / pdf / db                   │",
+    "must_contain": [
+      "Rules/embedding/LLM",
+      "source tags: text / web / pdf / db"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q022",
+    "category": "cite",
+    "query": "What corpus do the step9 data-role notes say backs this repo?",
+    "ideal_answer": "The corpus is self-authored step-series doc bundles (S1–S5, D14) with {text, metadata} schema and source tags; #25 embedding-drift playbook is mapped.",
+    "ideal_context": "| `data` / `ingestion` | **Data** | `{text, metadata}` schema, source tags; corpus = self-authored step-series doc bundles (S1–S5, D14); #25 embedding-drift playbook mapped. |",
+    "must_contain": [
+      "self-authored step-series doc bundles",
+      "S1–S5"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q023",
+    "category": "cite",
+    "query": "What judge setup does the Step-9 free stack specify?",
+    "ideal_answer": "Judge via an OpenAI-compatible endpoint (default Qwen/Qwen2.5-7B-Instruct-AWQ), with a local Ollama candidate — to be verified in NB-000, not assumed.",
+    "ideal_context": "judge via OpenAI-compatible endpoint (default `Qwen/Qwen2.5-7B-Instruct-AWQ`, local Ollama\ncandidate — *verify in NB-000, not assumed*) · HF Spaces (Gradio) demo · GitHub Actions",
+    "must_contain": [
+      "Qwen/Qwen2.5-7B-Instruct-AWQ",
+      "Ollama",
+      "verify in NB-000"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q024",
+    "category": "cite",
+    "query": "Why must source metadata propagate onto every chunk?",
+    "ideal_answer": "Every chunk carries its source — routing, retrieval, generation, and per-source eval all depend on it; without it, citations and per-source tuning break.",
+    "ideal_context": "| **Source metadata propagation** | Every chunk carries its source — routing, retrieval, generation, and per-source eval all depend on it; without it citations and per-source tuning break. |",
+    "must_contain": [
+      "Every chunk carries its source",
+      "per-source eval all depend on it"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q025",
+    "category": "cite",
+    "query": "What is the rationale for running both DeepEval and Ragas behind one neutral seam?",
+    "ideal_answer": "DeepEval is the pytest/CI gate (threshold, minimal footprint); Ragas adds the deepest retrieval metric battery plus a synthetic-testset generator for Steps 5–7. One neutral seam, both engines, same judge — EvalCase/MetricResult/Report decouple tests from any vendor so the metric framework stays swappable.",
+    "ideal_context": "| **Dual-backend evaluation (DeepEval + Ragas)** | DeepEval is the pytest/CI gate (threshold, minimal footprint); Ragas adds the deepest retrieval metric battery + synthetic-testset generator for Steps 5–7. One neutral seam, both engines, same judge. |\n| **Framework-neutral eval schemas** | `EvalCase`/`MetricResult`/`Report` decouple our tests from any vendor so the metric framework is swappable; regressions stay stable. |",
+    "must_contain": [
+      "One neutral seam, both engines, same judge",
+      "EvalCase",
+      "swappable"
+    ],
+    "source": "S5",
+    "path": "data/docs/s5_docs_bundle.md"
+  },
+  {
+    "id": "S5-Q026",
+    "category": "cite",
+    "query": "Which Step-4 planes are implemented today, and which is the current build phase?",
+    "ideal_answer": "The data plane (ingestion, chunking, embeddings, vector store) and the eval plane (dual DeepEval+Ragas seam, component evals) are implemented and tested (102 unit + integration tests, real-mode smoke). The inference plane (routing → hybrid retrieval → rerank → cited generation → pipeline → CLI/UI) is the current build phase, scaffolded per doc/task/.",
+    "ideal_context": "> **Status at a glance (which parts are real today):** the **data plane** (ingestion, chunking,\n> embeddings, vector store) and the **eval plane** (dual DeepEval+Ragas seam, component evals)\n> are implemented and tested (102 unit + integration tests, real-mode smoke). The **inference\n> plane** (routing → hybrid retrieval → rerank → cited generation → pipeline → CLI/UI) is the\n> current build phase, scaffolded per `doc/task/`. Detail in §1's status column.",
+    "must_contain": [
+      "data plane",
+      "eval plane",
+      "inference",
+      "current build phase"
     ],
     "source": "S5",
     "path": "data/docs/s5_docs_bundle.md"
