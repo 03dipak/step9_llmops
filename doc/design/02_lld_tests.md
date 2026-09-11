@@ -39,19 +39,29 @@ jupyter_notebook/
 
 #### `config/judge.py` — `judge_llm()` + `throttled_invoke()`
 
-Mirrors step4 (`config.py:215-233` + `eval/judge.py:28-30`).
+Mirrors step4 (`config.py:215-233` + `eval/judge.py:28-30`). `config` exports only the stable
+public API: `judge_llm()` and `generate_llm()` (via the `__init__` facade, D22); every other
+symbol is private (`_`-prefixed).
 
 ```python
 # --- env contract (read-only, no secrets in code) ---
-# LLM_BASE_URL  — OpenAI-compatible endpoint (required)
-# LLM_API_KEY   — auth token (required)
-# LLM_MODEL     — model id, logical name only (default: "Qwen/Qwen2.5-7B-Instruct-AWQ" per D9)
+# LLM_BASE_URL  — OpenAI-compatible endpoint (required; missing/empty → RuntimeError)
+# LLM_API_KEY   — auth token (required; missing/empty → RuntimeError)
+# LLM_MODEL     — model id, logical name only; MISSING IS NOT AN ERROR → default per D9
+# ENV RULE: all three values are .strip()'d before use (step4 config.py:64 parity);
+#           a value that is empty AFTER strip counts as missing.
+# ERROR MSG RULE: RuntimeError text names the env var + a hint; it must not contain
+#           the value, a partial key, or the endpoint URL (verify in T-02-2).
 
 def judge_llm() -> ChatOpenAI:
-    """Build judge from env; raises RuntimeError if env missing."""
+    """Build judge from env (stripped); raises RuntimeError if URL/KEY missing."""
 
 class _JudgeThrottle:
-    """Global lock + ≥3.33s spacing (~18 req/min; step4 observed 429 at ~20 req/min)."""
+    """Process-global lock + ≥3.33s spacing (~18 req/min; step4 observed 429 at ~20 req/min).
+    Scope: in-memory, per-process only — cross-process coordination is OUT of scope in Mod 2.
+    First call: no initial wait (_last_send starts at 0 → elapsed > spacing).
+    Exceptions: _last_send is updated ONLY on success — a failing endpoint never
+    compresses the spacing window (mirrors step4 eval/judge.py:50-56)."""
     _lock: threading.Lock
     _last_send: float
 
@@ -59,7 +69,10 @@ def throttled_invoke(prompt: str, *, llm: ChatOpenAI) -> str:
     """Serialize judge calls through _JudgeThrottle. Returns JSON string."""
 
 class JudgeError(Exception):
-    """Typed error raised when salvage fails after 1 re-prompt."""
+    """Typed error raised when salvage fails after 1 re-prompt.
+    Message ALLOWS: prompt_id/key + short reason ('invalid JSON after salvage').
+    Message DENIES: LLM_BASE_URL, LLM_API_KEY, any secret-pattern substring, and
+    full raw responses (which may embed injected secrets). No content logging (D11)."""
 ```
 
 **Salvage path** (mirrors step4 intent, explicit in task 02):
@@ -67,8 +80,20 @@ class JudgeError(Exception):
 2. If JSON invalid (JSONDecodeError or schema mismatch): strip markdown fences → retry **once**
 3. If still invalid: raise `JudgeError` (typed, no secrets in message)
 
+**Definitions that sharpen the salvage path:**
+- **"Invalid JSON"** = `json.JSONDecodeError` on ANY input that is not a JSON object → this
+  includes truncated/partial responses, scalar/literal output, and fenced blocks pre-strip.
+- **"Schema mismatch"** = `pydantic.ValidationError` when constructing the typed
+  `JudgeResponse` (e.g. `winner`, `reasoning`, `score_a`, `score_b`) from the parsed dict.
+- **Raw responses are never logged** — not even redacted. The repo invariant (D11) is
+  content-free logs; Mod 2 debugging goes through typed errors + counted metadata only.
+
 **JSON mode**: pass `response_format={"type": "json_object"}` if the endpoint supports it;
 fall back to fence-strip + `json.loads` if it doesn't. pydantic validates the schema after parse.
+
+**Generation separation (architectural invariant, D6):** judge code must never read
+`GROQ_*`/`GEMINI_*` envs; generation code must never read `LLM_*` envs. This is an
+intentional decision (D6), checked by tests — not a convention to refactor "later".
 
 #### `prompts/registry.json` — schema
 
@@ -97,14 +122,30 @@ Mirrors step4 (`prompts/prompt_registry.json`).
 
 **Composite key**: `prompt_id + source_type + version` — unique within the registry.
 
+**Version semantics**: `version` is a semver string (`<major>.<minor>.<patch>`) **by
+convention only**; `approve`/`rollback` never parse, compare, or sort it — they flip the
+`status` flag. The registry does not infer ordering from version numbers.
+
+**Zero-approved state is legal**: during early authoring a `prompt_id + source_type` may
+have all versions `draft`/`retired`. Code that *selects* the approved prompt (e.g. the
+judge harness) must raise a clear, typed error when none exists. The registry itself
+(`approve`/`rollback`/`record_eval`) treats zero-approved as a normal state.
+
+**`input_variables` are informational in Mod 2** — filled for future template rendering,
+but NOT validated against the prompt template (no `{var}`-presence check). Explicitly OUT
+of scope; lands with the prompt-template work (Mod 6) if ever.
+
 #### `prompts/registry.py` — lifecycle
 
 ```python
 def load_registry(path: Path | None = None) -> dict:
-    """Load registry.json; path defaults to this package's file."""
+    """Load registry.json; default path = package-relative (resolved from this file,
+    i.e. Path(__file__).parent / 'registry.json'), never cwd-dependent."""
 
 def save_registry(registry: dict, path: Path | None = None) -> None:
-    """Dump to disk atomically."""
+    """Dump to disk atomically (write temp file + os.replace). Note: concurrent edits
+    from multiple processes are NOT fully safe in Mod 2 — atomic writes only reduce
+    corruption risk, they don't serialize writers (single-writer assumption)."""
 
 def approve(registry: dict, key: str) -> dict:
     """Set status='approved'; old approved → 'retired'. Returns updated registry."""
@@ -164,16 +205,20 @@ Cases derive from task 02 exit criteria + step4 evidence (judge.py:28-30, NB-000
 | T-02-1 | `judge_llm()` builds from env without secrets | 3 env vars set | returns `ChatOpenAI` instance; no key/value in repr | "no key/literal" |
 | T-02-2 | `judge_llm()` raises if env missing | unset `LLM_BASE_URL` | `RuntimeError` with helpful message (no leaked value) | robust env contract |
 | T-02-3 | `throttled_invoke` serializes | 2 rapid calls (fake clock, `time.monotonic` mocked) | second call sees ≥ `_MIN_SPACING_S` (60/18 ≈ 3.33s) elapsed on the mock clock. Mirror step4 `eval/judge.py:28-30` (`_MIN_SPACING_S` + global lock + `_last_send`) | throttle correctness |
+| T-02-3a | throttle: first call immediate | 1 call, fresh throttle (fake clock 0) | no sleep on first call (`_last_send=0` → elapsed > spacing) | first-call semantics |
+| T-02-3b | throttle: exception doesn't compress window | invoke raises → invoke raises again (fake clock; both within 3.33s of each other) | second call still waits ≥ spacing from `_last_send`; `_last_send` unchanged by failures (mirror step4 `judge.py:50-56`) | no retry storms on failure |
 | T-02-4 | JSON prompt → parse → schema OK | valid JSON response mock | `winner` present; `score_a`/`score_b` integers 0-10; `reasoning` non-empty; pydantic validates | "JSON reply parsed and schema-validated" (exit criterion 1) |
 | T-02-5 | Malformed JSON → salvage → re-prompt → OK | first response = fenced ` ```json...``` `, second = valid JSON | fence stripped, second attempt returns valid result; 2 invocations to the mock | salvage path works |
-| T-02-6 | Malformed JSON → salvage exhausted → `JudgeError` | 2 consecutive invalid responses | `JudgeError` raised; message contains no key/endpoint string | typed error, no secret leak |
+| T-02-6 | Malformed JSON → salvage exhausted → `JudgeError` | 2 consecutive invalid responses | `JudgeError` raised; assert `str(err)` matches NO secret pattern (reuse T-02-11's regex set: `sk-`, `gsk_`, `xai-`, `LLM_BASE_URL`/`LLM_API_KEY` names, endpoint URL substring) | typed error, no secret leak |
 | T-02-7 | Registry approve (v2 → approved, v1 → retired) | load registry, approve `V2` | `V2.status == "approved"` AND `V1.status == "retired"` | "rollback exercised and recorded" (exit criterion 3) |
 | T-02-8 | Registry rollback to V1 | approve V2 (V1 → retired), then rollback V2 | `V1.status == "approved"`, `V2.status == "retired"` | rollback lifecycle |
 | T-02-9 | Registry unknown key → `KeyError` | `approve(registry, "NONEXISTENT")` | `KeyError` with key name | robustness |
 | T-02-10 | Registry `model` = provenance only | `registry.json` entries contain `model` field | no code resolves provider from `model`; field is a free string (test: read + assert string, never pass to provider builder) | "never in the registry" (task 02:37) |
+| T-02-10a | Judge reads no generation envs | patch `GROQ_API_KEY` / `GEMINI_API_KEY` into env, then `judge_llm()` | build still succeeds reading only `LLM_*`; generation envs are never read by judge code (D6 separation) | env separation invariant |
 | T-02-11 | No secrets in committed files | grep for `sk-`, `gsk_`, `xai-`, key patterns across `src/` + `tests/` + `jupyter_notebook/` + `registry.json` | no matches | "No key/literal in any file" (exit criterion 6) |
-| T-02-12 | `uv run ruff check .` + `uv run mypy src/` clean | toolchain check | exit 0, no findings | "ruff + mypy clean" (exit criterion 5) |
+| T-02-12 | `uv run ruff check .` + `uv run mypy src/` clean | toolchain check | exit 0, no findings. NOTE: mypy is only meaningful if every public function in `judge.py`/`registry.py` carries type hints — this is the rule, not a recommendation | "ruff + mypy clean" (exit criterion 5) |
 | T-02-13 | NB-002 runs end-to-end | `jupyter nbconvert --execute NB-002_judge_wiring.ipynb` | exit 0; stdout contains parsed judge JSON with winner + reasoning + scores | "NB-002 runs end-to-end" (exit criterion 1) |
+| T-02-13a | NB-002 ↔ module parity | after `config/judge.py` + `prompts/registry.py` are promoted, re-run NB-002 | NB-002 still passes. NOTE (drift rule): NB-002 is the prototype; once the modules exist they are the source of truth. Notebooks may diverge, but all offline tests target the promoted modules — notebook asserts never replace test coverage. Mod 3 gates additionally wrap `judge_llm()` (regression parity lives there) | prototype→promote discipline (D2) |
 | T-02-14 | NB-002 endpoint matches D9 | notebook asserts `LLM_MODEL` env value | matches `Qwen/Qwen2.5-7B-Instruct-AWQ` (or D9-verified default) | "endpoint matches D9 choice" (exit criterion 2) |
 
 ## Role reviews (read-only lens, before you build)
@@ -182,7 +227,7 @@ Cases derive from task 02 exit criteria + step4 evidence (judge.py:28-30, NB-000
 |---|---|---|
 | **security** | No keys in registry.json templates; `judge_llm()` reads env at runtime only; salvage `JudgeError` message checked against key/endpoint leakage; `.env` never committed (T-02-11 covers) | ⏳ pre-build review |
 | **ops** | Throttle spacing ≤18 req/min (D10 latency budget not affected — judge is offline/gate-only, not in P95); `JudgeError` typed for structured logging | ⏳ |
-| **tester** | 14 cases: factory (T-02-1/2), throttle (T-02-3), JSON+schema (T-02-4), salvage (T-02-5/6), registry lifecycle (T-02-7/8/9), provenance (T-02-10), hygiene (T-02-11/12), notebook (T-02-13/14) — all offline except T-02-13/14 which are `integration`-marked | ⏳ |
+| **tester** | 18 cases: factory (T-02-1/2), throttle+exceptions (T-02-3/3a/3b), JSON+schema (T-02-4), salvage (T-02-5/6, security regex reuse), registry lifecycle (T-02-7/8/9), provenance (T-02-10), env separation (T-02-10a), hygiene (T-02-11/12, type hints mandated), notebook (T-02-13/13a/14) — all offline except T-02-13/14 which are `integration`-marked | ⏳ |
 | **planner** | No module-order deviation; NB-002 notebook-first (D2) → promote → tests; config is a package, not a single file (00b LLD projection + INTERVIEW_Q&A package diagram) | ⏳ pre-build review |
 | **ux** | n/a — no user-facing interface in Mod 2 | ⏭️ |
 
