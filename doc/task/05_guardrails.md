@@ -20,8 +20,10 @@
    pattern). Answers that cite nothing = abstain, not answer.
 3. **Per-source circuit breaker** — a failing source (repeated errors / degraded) is isolated
    and the router degrades gracefully; surfaced as a "degraded source" state in the demo.
-4. **PII-minimal metric** — an `info` metric scanning outputs for PII-like patterns (emails,
-   phone numbers); minimal by design — the *full* PII/red-team suite is #13/#19, Step 7.
+4. **PII-minimal metric** — an `info` metric scanning **generation outputs only** for
+   PII-like patterns (emails, phone numbers); minimal by design — the *full* PII/red-team
+   suite is #13/#19, Step 7. Source-side PII (raw transcript/OCR/video/text ingestion) is
+   **out of Mod-5 scope** — it belongs to the Step-7 red-team suite, never into this metric.
 5. `tests/test_guardrails.py` — abstain-on-low-confidence, citation-allowlist reject,
    breaker trip/recover, PII-flag; all deterministic, no network.
 
