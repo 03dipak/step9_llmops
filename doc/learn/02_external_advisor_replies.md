@@ -321,3 +321,323 @@ the three gaps were re-anchored to those modules before registering.
 **Overall:** 1 claim confirmed, 3 genuinely-new gaps adopted as D28–D30 and
 folded (D31/D32 scope), 1 naming proposal declined. All grounded in the
 actual task map; no golden-schema reopened, no dependency reorder.
+
+---
+
+## Round 5 — Mod-3 regression-gates LLD review (perplexity.ai + claude.ai + gemini + five in-repo role lenses, 2026-09-14)
+
+> Scenario: `doc/design/03_lld_tests.md` (the Mod-3 regression-gates LLD) was
+> reviewed by three external AI advisors (perplexity.ai, claude.ai, gemini) as
+> an external checkpoint per D17/D20, then by the five in-repo role agents
+> (reviewer, tester, ops, security, planner). Everything below was verified
+> against the actual repo before adoption; external claims are checkpoints, not
+> verdicts.
+
+**What was reviewed:** the Mod-3 LLD — `metric_registry` schema + registered
+rows, `run_suite` (offline deterministic), `snapshot` (baseline serialization),
+`compare` (PASS/FAIL/REVIEW verdict engine), the file-layout projection, the
+data-flow block, the test-case matrix, and the role-review table.
+
+**Adopted (A–G advisor deltas + H1–H15 role refinements), summarized:**
+
+- **Registry id-pattern broadened** to match the actual row ids
+  (`eval.(gate|guardrail|info).<name>[(.suffix)]`, `.S[1-5]` source segment;
+  `golden_rules` has no pillar segment — the pattern states that, not a fixed
+  3-segment shape).
+- **+2 latency rows registered with task-04 owner**:
+  `eval.guardrail.latency.p95` (guardrail → REVIEW, exit 2) and
+  `eval.info.latency.ttft_p95` (info, provenance only) — values arrive with
+  Mod 4's SLO report (H15).
+- **G4 counting convention** — per-source counts follow split-on-`+` (D15):
+  retriever 143 (S1 34/S2 27/S3 28/S4 28/S5 26, 4 double-counts), correctness
+  112 (S1 25/S2 22/S3 20/S4 24/S5 21, 5 double-counts); verified against
+  `eval/goldens/`.
+- **Misroute range corrected** 1–3 → 1–2 (verified S1 1, S2 2, S3 2, S4 2,
+  S5 1); the LLD's own "1–3" was the error, fixed.
+- **Exit taxonomy 0..4 (D36)** — verdicts unchanged (0/1/2); 3 = eval/input
+  error, 4 = config/baseline error; argparse/system errors translated at the
+  CLI boundary; CI maps exit 2 → green + ⚠️ annotation (non-blocking), 3/4 →
+  red with distinct diagnostics, 1 → red regression.
+- **Missing-guardrail skip rule (H2)** — a guardrail absent from the candidate
+  is recorded in `detail`, never a verdict (avoids nightly-only guardrails
+  keeping the gate permanently yellow).
+- **E1 closure scan + extended deny-set** — transitive import closure of the
+  four eval modules incl. `__init__` chains; deny-set adds `openai`, `httpx`,
+  `requests`, `urllib`, `http.client`, `socket`.
+- **E2/E3 seams** — any `os.environ`/`.env` read in the run_suite tree is a
+  violation (incl. `EMBED_MODEL`, `LANGSMITH_*`); read-only + no-socket
+  backstop.
+- **CI outcome map + path-filter globset** (`eval/**`, `data/docs/**`,
+  `src/llmops/eval/**`, `tools/goldens/**`, `uv.lock`).
+- **active.json atomic + Mod-6 ownership** — canonical pointer rewritten
+  atomically in the same commit as the baseline it points to; switch owned by
+  Mod 6's promote flow (H15).
+- **T-03-7/8 reworded** (boundary math now self-consistent; REVIEW fixture
+  keeps all gate rows present-and-passing).
+- **16 new matrix rows** added (17 → 33 total, re-derived at amendment; T-03-2a/2b/5a/5b/6a/8c/8d/8e/8f/9b/11b/11c/11d/13b/13c/13d).
+- **Snapshot write-time completeness** (T-03-5a) + `schema_version`/`hashes`
+  fields on the Snapshot dataclass.
+- **INTERVIEW_Q&A buffer clause** — a new Q covers "the gate itself breaks"
+  (D36 outcome classes), inserted in the master deck.
+
+**Corrected checkpoints (advisor claims that didn't survive verification):**
+
+- **claude.ai "45–50 hidden rows / too few rows"** — misread of per-source
+  counts. Verified: the misroute sums are 1–2 per source (S1 1, S2 2, S3 2,
+  S4 2, S5 1); the LLD's "1–3" was the actual bug, now fixed. Per-file totals
+  are retriever 139, routing 67, correctness 107 (313 rows, closed set D19).
+- **gemini float-arithmetic uncertainty** about `1.0 - 0.03` — reproduced on
+  this platform: `1.0 - 0.03 == 0.97` exactly; the inclusive band means
+  boundary tests are 0.97 PASS / 0.96 FAIL (computed bound).
+- **gemini zero-sample (n=0 → 0.0 soft fallback)** — overruled by mentor: a
+  typed error (exit 3/4) wins; a silently-zero metric would corrupt the gate
+  (registered change, D19-analogous).
+
+**Declined (with the standing reason):**
+
+- baseline governance machinery — Mod-6 territory, D30
+- structured comparison objects — post-step9, D34
+- hypothesis property tests — no new dependency; deterministic unit rows suffice
+- T-03-12 split — task-03 exit-criterion 4 scope
+- network-disabled CI container — the offline seam is enforced in code, not by
+  container topology (T-03-11/11b/11c/11d)
+- n=0 → 0.0 soft fallback — typed error wins (above)
+- blanket ignore-new-metrics — refined to gate-missing → exit 4, info-only →
+  log
+- `isclose` — inclusive computed-band boundary is already deterministic
+- Snapshot-reuse with candidate marker — separate concerns kept separate
+- 10-field Provenance — scope creep vs step4 parity
+
+**Verdicts:**
+
+- **reviewer** 28 ✅ / 3 ⚠️ / 0 ❌
+- **tester** boundary-verified + 3 genuinely-new gap notes adopted
+  (write-time completeness, empty-`must_contain` guard H8, binary-in-practice
+  note H9)
+- **ops** all-adopt incl. CI outcome map — 1 genuinely-new operational gap
+  (required-check exit-2 semantics) folded into D36
+- **security** all-adopt — closure-scope upgrade to E1
+- **planner** no-reorder + 2 ownership lines (task 04 / task 06)
+
+**Registered:** D36, D37 — this file's Round 5 is the D37 evidence.
+
+---
+
+## Round 6 — perplexity.ai (second review of the amended LLD, 2026-09-14)
+
+> Scenario: the already-amended Mod-3 LLD (`doc/design/03_lld_tests.md`) got a
+> second external checkpoint from perplexity.ai (D17/D20), 20 findings, all 20
+> adopted as contract-precision amendments. Every claim was verified against
+> the actual repo before adoption; external claims are checkpoints, not
+> verdicts.
+
+**What was reviewed:** the round-5-amended LLD — required-check workflow
+contract (workflow contract paragraph), file layout projection, `metric_registry`
+schema, `run_suite` rules, `snapshot` serialization + canonical pointer, `compare`
+docstring + CLI, and the 33-row test-case matrix.
+
+**Adopted (20/20), summarized:**
+
+- **Required-check deadlock fixed (workflow contract + T-03-13b/13d):** a
+  path-filtered `pull_request` trigger gets skipped when the globset is
+  unchanged, leaving the required check Pending and blocking merge (verified:
+  docs.github.com, troubleshooting-required-status-checks). The `llm-eval-gate`
+  job now ALWAYS runs on `pull_request` + `workflow_dispatch`; the globset
+  survives only as an INTERNAL detection set that no-ops with an annotation
+  when nothing changed.
+- **`active.json` pointer contract (file tree + snapshot + CLI):** pointer
+  added to the LLD file tree; schema `{schema_version, baseline_id, path}`;
+  path-safety rules (basename-only, `.json`, inside `eval/baselines/`, no
+  traversal, target exists, `baseline_id` matches snapshot id); resolution
+  before compare; CLI `--baseline <explicit>` vs `--active`; any violation →
+  ConfigurationError → exit 4.
+- **Snapshot manifest/hash contract:** `hashes: dict[str,str]` → explicit
+  `goldens_sha256` + `corpus_sha256` (sorted relative paths + file bytes);
+  `save_snapshot(path: Path | None = None)` — invalid default removed;
+  write-time completeness = all 16 gate rows (guardrail/info optional);
+  `meta` comment drops the judge mention (Mod 3 has no judge; live judge is
+  nightly-only, D5).
+- **`compare` contract sharpened:** returns ONLY `Verdict`; error classes are
+  RAISED, `main()` maps them to 3/4 at the CLI boundary; unknown candidate
+  metric id → **FAIL(1)** (not exit 3); duplicate candidate ids →
+  EvaluationInputError → exit 3 — no dedupe-by-last-value, duplicates are an
+  input error (supersedes a round-5 draft intent; `grep` confirmed no dedupe
+  wording was ever committed to `doc/`).
+- **Registry precision:** `value_domain: Literal[fraction, nonnegative]` field;
+  tolerance validation `>= 0` (0.0-tolerance rows: `golden_rules`,
+  `snapshot_rowcount`); relative tolerance requires baseline >= 0
+  (zero-baseline × relative → exit 4).
+- **data/docs scoping + provenance:** `data/docs/*` used ONLY by the
+  `golden_rules` L1 invariant check via `tools/goldens/t01_verify.py`; corpus
+  rides into provenance via `corpus_sha256`; all other gate rows are pure
+  functions of the golden files.
+- **Normalization contract:** NFC (`unicodedata.normalize`), line endings →
+  `\n`, trim, PRESERVE case, case-sensitive substring via the shared t01_verify
+  helper (313/313 non-empty `must_contain` intact).
+- **JSON float serialization contract:** standard numbers (Python/uv only — no
+  cross-language contract), never rounded, dict keys sorted, single trailing
+  newline; determinism pinning kept.
+- **Matrix precision (count stays 33):** T-03-1 compiled-id-regex assertion;
+  T-03-5/5a hash renames; T-03-5b malformed-pointer battery (7 cases, all
+  exit 4); T-03-11d deny-set EXACTNESS reframe (set equality, distinct from the
+  T-03-11 traversal scan); T-03-13/13b/13d reworded (always-run/no-filter,
+  source-provable-only); count note re-derived at 33.
+
+**D17/D20 honesty note:** all 17 repo-fact greps confirmed before adoption
+(tolerance `>= 0` rows, `meta` comment, `save_snapshot` signature, `hashes`
+field); the round-5 "dedupe by last value" wording was a draft intent only —
+no such string exists in `doc/`, and the LLD now states duplicates are an input
+error. Scope stayed closed: no new modules, no reorder, no golden-schema change.
+
+**Verdicts:** five-role conditional approval — LLD amendments adopted in
+place; matrix re-verified at 33; re-verify contracts at NB-003 build per D21;
+D36 amended (exit-3 bucket now lists duplicate candidate ids, not unknown
+metric id) + D38 registered.
+
+**Registered:** D36 (amended), D38 — this Round 6 is the D38 evidence.
+
+---
+
+## Round 7 — claude.ai + gemini (second reviews of the round-6-amended LLD, 2026-09-14)
+
+> Scenario: the round-6-amended Mod-3 LLD (`doc/design/03_lld_tests.md`) got its second review
+> pass from claude.ai (12 findings, 1 correctness bug + 11 contract/precision items) and gemini
+> (approval, no changes) as external checkpoints per D17/D20. Everything below was verified
+> against the actual repo before adoption; external claims are checkpoints, not verdicts.
+
+**claude.ai — adopted (12/12):**
+
+- **The S1 tolerance bug (real defect):** at ±0.03, retriever S1 (n=34) computes 33/34 =
+  0.970588 > bound 1.00−0.03 = 0.97 → PASS, so S1 silently needed TWO flipped goldens to go red
+  while every other source (n≤28) trips on one. Fixed: per-source agreement/answer_cited gate
+  rows now use the **single-flip floor `1/(n+1)`** at the committed closed-set n (registry table +
+  tolerance policy; T-03-6b real-fraction boundary + T-03-7 retoleranced in the matrix).
+- **313-reconciliation line** — per-source gate rows cover 254 unique rows (retriever 139 +
+  misroute 8 + correctness 107); residual 59 = query_processing non-misroute rows (cite 38,
+  conflict 5, abstain 5, degrade 5, multi-source 5, basic 1); 139+8+107+59 = 313 (verified).
+- **T-03-3c multi-source double regression** — one edited multi-source golden row regresses every
+  listed source (D15 split-on-+).
+- **sample_size coverage rule** (compare step 9): candidate gate-row n != baseline n → FAIL(1)
+  coverage regression (shrink OR growth; 1/(n+1) floors hold only at the committed n).
+- **t01_verify import seam** — golden_rules imports t01_verify as a module so T-03-11's
+  transitive-closure scan covers it; subprocess invocation prohibited (would escape the scan).
+- **T-03-8g unregistered-candidate-id test** — unregistered id in candidate → FAIL(1), never
+  swallowed (round-6 reaffirmed).
+- **T-03-8h both-missing precedence** — same gate missing from baseline AND candidate: step 2
+  (candidate-missing) fires first → FAIL(1).
+- **Concurrency `${{ github.ref }}`** (per-branch, PRs never cancel each other) +
+  `workflow_dispatch` always runs the full suite (globset no-op applies to `pull_request` only).
+- **T-03-2c empty-`must_contain` runtime guard** — EvaluationInputError → exit 3, schema
+  unchanged; H8 now runtime-enforced rather than authoring-diligence.
+- **T-03-6b real-fraction boundary test** (33/34 vs bound 1−1/35, complements T-03-6a).
+- **T-03-5 asserts `git_commit` round-trip** (value or None preserved).
+- **Matrix 33 → 39** re-derived (T-03-2c/3c/6b/8g/8h/8i added; count note + tester role cell).
+
+**gemini — checkpoint confirm:** "contract finalized and ready for development". Implementation
+nuances already covered in-house: AST transitive-closure incl. `__init__` facades = E1/T-03-11;
+atomic `os.replace` = snapshot atomic note; raw float math / never-rounded + sorted-keys = the
+determinism pinning. Correction adopted: gemini's "T-03-11a–d" mislabels — there is NO T-03-11a;
+the seams are T-03-11/11b/11c/11d (labels re-checked; no LLD change needed).
+
+**Verdict:** all 12 claude items verified and adopted; gemini approved without changes; D39
+registered; matrix finalized at 39 rows for the NB-003 build; re-verify at D21.
+
+**Registered:** D39 — this Round 7 is the D39 evidence.
+
+---
+
+## Round 8 — claude.ai (blocking review) + approvals (2026-09-14)
+
+> Scenario: the round-7-amended Mod-3 LLD (`doc/design/03_lld_tests.md`) received one blocking
+> review from claude.ai (12 findings, 6 blocking + 6 important, all adopted) plus two approval
+> checkpoints — a second claude pass ("yes, ready to build") and another advisor approval (citing
+> a stale 33-case count, corrected). Everything was verified against the repo before adoption per
+> D17/D20; external claims are checkpoints, not verdicts.
+
+**claude.ai blocking review — adopted (12/12):**
+
+*6 blocking:*
+- **`expected_sample_size` contract on `Metric`** — registered committed n is the source of truth;
+  tolerance = 1/(expected_sample_size+1), never derived from the candidate's own sample_size
+  (field `int | None`; guards against the S1 silent-hole recursion, claude #1).
+- **Structural-first compare precedence** (11 steps) — sample-size check, unknown-id, and
+  missing-gate checks run BEFORE any value comparison; both-missing → candidate-missing wins
+  (unchanged from Round 7); FAIL>REVIEW>PASS stated explicitly (step 11).
+- **Consolidated exit map** — unknown candidate metric id → FAIL(1) not exit 3 (regression,
+  not infra); main() and T-03-9b updated.
+- **Report envelope aligned** — `{schema_version, generated_utc, metrics}` matches snapshot's
+  field name; `meta` stays snapshot-only; `version` removed from the candidate envelope.
+- **data/docs + t01_verify interface precision** — `run_suite` reads `data/docs` in exactly two
+  ways (corpus_sha256 manifest + t01_verify L1 checks); no free-corpus search exists anywhere in
+  Mod 3.
+- **Normalization ownership** — matching contract assigned to the shared t01_verify helper;
+  committed t01_verify.py:53 currently performs RAW substring (line 53 confirmed) — implementing
+  normalization inside that helper is an explicit NB-003 requirement surfaced 2026-09-14.
+
+*6 important:*
+- **T-03-13c reword** — valid baseline+pointer → PASS; broken → exit 4 (ConfigurationError),
+  never "gate still exit 0" as a blanket promise.
+- **Concurrency block** — `group: llm-eval-gate-${{ github.event.pull_request.number || github.ref }};`
+  `cancel-in-progress: true`; each PR gets its own group; stale-run cancellation for same PR/ref.
+- **T-03-11d subset semantics** — required deny-set ⊆ actual scanned deny-set; extending the
+  deny-set is a registered-change action, not a test break.
+- **Canonical-bytes determinism** — byte identity defined over the DETERMINISTIC subset
+  (schema_version + sorted metrics); generated_utc excluded; T-03-2 and T-03-5 fixture-
+  asserted accordingly.
+- **One-flip-floor wording + platform-observation boundary** — T-03-6b reworded; T-03-6a
+  extended to note decimal equality is a platform observation, not the portable contract.
+- **golden_rules no-1.0-assumption** — compare never assumes a baseline value of 1.0;
+  tolerance 0.0 = any strict degradation from the stored baseline fails.
+
+**Approval checkpoints:**
+- Second claude pass — "yes, ready to build"; two non-blocking notes: (1) 6b bound literal
+  "n/(n+1)" (folded into the one-flip-floor wording); (2) `git_commit` cross-environment
+  round-trip test (nice-to-have; not adopted — git presence is cheap-optional, None path already
+  covered). Checkpoint correction: this pass cited "T-03-11a–d" — there is NO T-03-11a; the seams
+  are T-03-11/11b/11c/11d (same mislabel as prior rounds, corrected here).
+- Advisor approval citing "33 cases" — corrected: the matrix is 39 since Round 7 (re-derived,
+  verified by grep-count); stale count is a checkpoint-only issue, not a regression.
+
+**Verdict:** all 12 blocking corrections verified + adopted with zero matrix-count change
+(matrix confirmed at 39, count note + tester cell byte-matched). D40 registered; LLD converged —
+freeze for NB-003 build; re-verify at D21.
+
+**Registered:** D40 — this Round 8 is the D40 evidence.
+
+---
+
+## Round 9 — perplexity.ai re-review of the round-8 LLD (2026-09-14)
+
+> Scenario: the round-8-amended LLD got a fresh perplexity.ai pass. Verdict: "approved for
+> implementation" with two minor edits and a set of small consistency fixes. All claims verified —
+> external reviews are checkpoints, not verdicts (D17/D20). Registered as D41.
+
+**Adopted (2 minor edits):**
+- **argparse exit-code collision fixed** — argparse's NATIVE usage-error exit code is 2, which
+  collides with REVIEW(2). The LLD now mandates a custom `ArgumentParser.error()` override so
+  usage errors raise `EvaluationInputError` → exit 3, and states that argparse's native 2 must
+  never escape (main() docstring + T-03-9b expected column).
+- **Envelope wording** — verified already consistent from Round 8: the candidate envelope is
+  `{schema_version, generated_utc, metrics: list[MetricValue]}` with `meta` Snapshot-only
+  (Snapshot dataclass, line ~208). No edit needed; the advisor's `meta` inclusion proposal was
+  DECLINED because `meta` is free-form/optional (golden counts, notes) and would break the
+  canonical-bytes determinism contract (T-03-2). Advisory sole-owner confirmed.
+
+**Adopted (small consistency fixes):**
+- **run_suite docstring** now states the canonical-bytes rule (schema_version + sorted metrics;
+  generated_utc excluded) in addition to the rules-section note.
+- **`compare never rounds`** moved out of `validate_registry()` into the `compare()` docstring as
+  an explicit INVARIANT (raw float math; no boundary-flipping rounding).
+- **Data-flow diagram** now shows `--active` → `eval/baselines/active.json` resolution next to
+  `--baseline <path>`.
+- **T-03-2 exit-criterion label** reworded to "offline gate execution end-to-end" — explicitly
+  NOT the D36 exit-1 regression code; T-03-14's "exit 1 end-to-end" label likewise relabeled to
+  "task-03 exit criterion 1 (label, not the D36 exit-1 code)."
+
+**No count change:** matrix confirmed at 39 (grep-count verified after edits); count note updated
+to "count unchanged in Round-8" is retroactive — Round 9 also changed zero rows.
+
+**Verdict:** LLD remains converged at 39 rows; Round 9 folded as contract-precision amendments,
+no blocking remaining. Re-verify at D21.
+
+**Registered:** D41 — this Round 9 is the D41 evidence.

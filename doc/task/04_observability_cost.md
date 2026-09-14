@@ -43,7 +43,7 @@
 - [ ] Stage-split timing + TTFT + reliability computed and reported (JSON)
 - [ ] `cost/query` per source with provenance (provider recorded per query)
 - [ ] Free-tier quota budget documented in `doc/notes/04_cost_notes.md` (measured, not guessed)
-- [ ] SLO report feeds ≥1 `info` metric into the Task-03 gate
+- [ ] SLO report feeds the registered latency rows into the Task-03 gate: `eval.info.latency.ttft_p95` (info) + `eval.guardrail.latency.p95` (guardrail → REVIEW, exit 2) — both named in `doc/design/03_lld_tests.md` registry (H15)
 - [ ] `tests/test_metrics.py` green incl. no-content-in-logs; ruff + mypy clean
 
 ## Verify

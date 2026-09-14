@@ -10,18 +10,19 @@
 
 ```
 src/llmops/eval/
-├── __init__.py            # facade: re-exports metric_registry, run_suite, compare-entry helpers
+├── __init__.py            # facade: re-exports registry + run_suite + compare/snapshot entry helpers (save_report, save_snapshot, compare, main)
 ├── metric_registry.py     # metric schema (direction / kind / tolerance) + the registry rows
 ├── run_suite.py           # evaluate goldens → candidate report (offline deterministic stub eval)
 ├── snapshot.py            # serialize report → eval/baselines/<id>.json (baseline = committed)
-└── compare.py             # diff candidate vs baseline → PASS(0)/FAIL(1)/REVIEW(2)
+└── compare.py             # diff candidate vs baseline → PASS(0)/FAIL(1)/REVIEW(2); 3=eval/input error, 4=config/baseline error (D36)
 
 eval/
 └── baselines/
-    └── <id>.json          # committed baseline snapshot (created by snapshot.py)
+    ├── <id>.json          # committed baseline snapshot (created by snapshot.py)
+    └── active.json        # canonical pointer {schema_version, baseline_id, path} — resolves the active baseline
 
 .github/workflows/
-├── llm_eval_gate.yml      # offline-only required check (you wire it; contract here)
+├── llm_eval_gate.yml      # offline-only required check (you wire it; contract here); exit-2 → green + ⚠️ annotation (D36 outcome map)
 └── live_eval_nightly.yml  # scheduled, informational, NEVER a gate
 
 tests/
@@ -30,6 +31,33 @@ tests/
 jupyter_notebook/
 └── NB-003_regression_gates.ipynb  # notebook-first prototype (D2), promotes into src/llmops/eval/
 ```
+
+**Workflow contract (Mod-3 slice; the learner wires `.github/workflows/llm_eval_gate.yml`):**
+
+- Gate job (required check `llm-eval-gate`): ALWAYS runs on `pull_request` + `workflow_dispatch`
+  — NO trigger path filter (a workflow skipped by path filtering leaves its required check
+  Pending and blocks merging; `docs.github.com` troubleshooting-required-status-checks). The job
+  INTERNALLY detects whether any path in the globset changed (`eval/**` (incl. `eval/baselines/**`),
+  `data/docs/**`, `src/llmops/eval/**`, `tools/goldens/**`, `uv.lock`,
+  `.github/workflows/llm_eval_gate.yml`, `.github/workflows/live_eval_nightly.yml`,
+  `pyproject.toml`); when unchanged it no-ops with an
+  annotation (the required check still reports Pending-then-pass, so it never blocks merging).
+  Internal globset detection applies to `pull_request` runs ONLY; `workflow_dispatch` (manual)
+  ALWAYS runs the full suite — no base-ref diff exists to compare.
+  `env:` block empty (no secrets / vault refs); `uv sync` from the committed `uv.lock`;
+  concurrency: group `llm-eval-gate-${{ github.event.pull_request.number || github.ref }}`,
+  `cancel-in-progress: true` — each PR gets its own group (concurrent PRs never cancel each
+  other); reruns on the same PR/ref cancel stale runs.
+- Pipeline step: `run_suite` → `save_report` (candidate JSON envelope
+  `{schema_version, generated_utc, metrics: list[MetricValue]}`) → `compare` → exit mapping: 0 = green;
+  **2 = green + ⚠️ annotation** (REVIEW non-blocking — D36 outcome map); 1 = red "regression";
+  3/4 = red with distinct "gate infra / re-baseline" diagnostics (T-03-13b).
+- Nightly job (`live_eval_nightly.yml`): triggers `schedule` + `workflow_dispatch` ONLY — no
+  `pull_request` trigger (fork-PR cannot fire it, F2); the live judge step runs
+  `continue-on-error: true`; informational only, never a merge gate (D5).
+- Baseline-change policy: any change to `eval/baselines/<id>.json` + `active.json` ships in the
+  same commit, explicitly noted (registered change, D19-analogous); `compare` exits 4 when the
+  pointer breaks (F3).
 
 Note: step4's names are `run_suite` → snapshot, `metric_registry`, `compare` (`data/docs/s4_qa_deep_dives.md:487,500-502`).
 step9 keeps those names (parity); `run_suite` here is the **offline deterministic** evaluator —
@@ -40,22 +68,25 @@ the live/online judge path stays OUT of the gate (D5: live evals are nightly-inf
 #### `metric_registry.py` — metric identity + metadata
 
 ```python
-class MetricKind:          # Literal["gate", "guardrail", "info"]
-class MetricDirection:     # Literal["higher", "lower"]  ("higher" = bigger score is better)
+MetricKind: TypeAlias = Literal["gate", "guardrail", "info"]
+MetricDirection: TypeAlias = Literal["higher", "lower"]  # "higher" = bigger score is better
 
 @dataclass(frozen=True)
 class Metric:
-    id: str                # dotted id, step4 parity: "eval.{pillar}.{metric}" (see rows below)
+    id: str                # dotted id, step4-parity naming: pattern eval\.(gate|guardrail|info)\.[a-z_]+(\.[a-z0-9_]+)*(\.S[1-5])? (rows below)
     name: str              # human-readable
     kind: MetricKind       # gate | guardrail | info
     direction: MetricDirection
     tolerance: float       # absolute delta (0.03 judge) or relative fraction (0.20 latency)
     tolerance_unit: Literal["absolute", "relative"]   # resolves the ±0.03 vs ±20% split
+    value_domain: Literal["fraction", "nonnegative"]  # fraction = value space finite ∩ [0,1]; nonnegative = >= 0 (latency etc.)
+    expected_sample_size: int | None  # committed closed-set n for per-source gate rows (golden files are D19-frozen); tolerance floors 1/(n+1) are computed from THIS, never from the candidate's own sample_size; None for rows whose semantics don't depend on n (guardrail/info rows)
     description: str       # one-line semantics. NO evaluator function here — registry is DATA.
 
 def get_metric(metric_id: str) -> Metric: pass      # raises KeyError on unknown id
-def metric_ids() -> list[str]: pass                  # stable ordering for snapshot/compare
-def validate_registry() -> None: pass                # invariant checks (T-03-1)
+def metric_ids() -> list[str]: pass                  # registry-declaration order (asserted by test, T-03-1)
+def gate_metric_ids() -> tuple[str, ...]: pass       # gates only, declaration order; len == 16 (T-03-3)
+def validate_registry() -> None: pass                # invariant checks (T-03-1): id dotted-unique; kinds/directions/ToleranceUnit TypeAlias-typed; every fraction metric's value space finite ∩ [0,1]; tolerance finite >= 0; every per-source gate row has expected_sample_size >= 1, and tolerance == 1/(expected_sample_size + 1) (single-flip floor, asserted by T-03-1/T-03-3)
 ```
 
 Tolerance policy (inherited from task 03:17 and step4 `s4:502`): judge-derived metrics default
@@ -63,24 +94,46 @@ Tolerance policy (inherited from task 03:17 and step4 `s4:502`): judge-derived m
 tolerance_unit="relative"` (latency rows are REGISTERED in Mod 3 but not computed — they land with
 Mod 4 observability; registering them now keeps the schema honest under D10).
 
+Per-source gate rows (retriever.agreement, correctness.answer_cited) do NOT use the judge ±0.03
+default: tolerance = 1/(expected_sample_size + 1) computed from the committed closed-set n
+registered per row (D19) — the registered n is the source of truth; the candidate's or
+baseline's own sample_size never changes a tolerance. A single flipped golden row must always
+trip that source's gate (single-flip floor; fixes S1's silent 2-row detection hole at n=34,
+verified 2026-09-14). The ±0.03 judge-derived default remains for the judge-similarity
+guardrail rows (band8, position_bias — nightly-only) and misroute gates.
+
 **Registered rows (Mod 3 slice). Exit criterion 5 = "≥3 metrics per source" (task 03:50),
 so gate rows are **per-source** for the three golden families** — exactly 3 gate rows per
 source (retriever × S1..S5, routing × S1..S5, correctness × S1..S5), 15 + 1 global = 16 gate rows:**
 
 | id | kind | direction | tolerance | semantics |
 |---|---|---|---|---|
-| `eval.gate.golden_rules` | gate | higher | 0.0 absolute | fraction of golden files passing L1 invariant checks (T-01-2/4/5/7-style; reuses `tools/goldens/t01_verify.py`) — global, all 3 files |
-| `eval.gate.retriever.agreement.S{1..5}` | gate | higher | 0.03 absolute | per-source off-goldens stub: `ideal_context` ↔ `must_contain` coverage for that source's retriever rows ($n$ per source: S1 34, S2 27, S3 28, S4 28, S5 26 — verified) |
-| `eval.gate.routing.misroute_negation.S{1..5}` | gate | higher | 0.03 absolute | per-source: misroute-category rows ($n$ 1–3/source) — 1.0 = every misroute golden stays a true negative (negation #24). Small-$n$ is coarse but valid: it only trips if a golden is *edited* into a false positive, which is exactly the regression the gate must catch (T-03-4 keeps committed goldens at 1.0) |
-| `eval.gate.correctness.answer_cited.S{1..5}` | gate | higher | 0.03 absolute | per-source: correctness-category rows ($n$ per source: S1 25, S2 22, S3 20, S4 24, S5 21 — verified): `ideal_answer` covers every citation-critical `must_contain` string (citation-resolution #28) |
+| `eval.gate.golden_rules` | gate | higher | 0.0 absolute | fraction of golden files passing L1 invariant checks (T-01-2/4/5/7-style; reuses `tools/goldens/t01_verify.py`) — global, all 3 files — binary-in-practice: 3-file denominator → values in {1.0, 0.667, 0.333, 0.0}; 0.0 tolerance trips on the first broken file (H9); compare does not assume a baseline value of 1.0 — tolerance 0.0 means ANY strict degradation from the stored baseline fails (claude #12) |
+| `eval.gate.retriever.agreement.S{1..5}` | gate | higher | 1/(n+1) absolute (S1 1/35, S2 1/28, S3 1/29, S4 1/29, S5 1/27 — single-flip floor at committed n) | per-source off-goldens stub: `ideal_context` ↔ `must_contain` coverage for that source's retriever rows ($n$ per source: S1 34, S2 27, S3 28, S4 28, S5 26 — verified) |
+| `eval.gate.routing.misroute_negation.S{1..5}` | gate | higher | 0.03 absolute | per-source: misroute-category rows ($n$ 1–2/source, verified: S1 1, S2 2, S3 2, S4 2, S5 1) — 1.0 = every misroute golden stays a true negative (negation #24). Small-$n$ is coarse but valid: it only trips if a golden is *edited* into a false positive, which is exactly the regression the gate must catch (T-03-4 keeps committed goldens at 1.0); misroute rows are the 8 misroute rows in query_processing_goldens.json; n=1 → 0/1 and n=2 → 1/2 both trip on any flip, so 0.03 needs no change |
+| `eval.gate.correctness.answer_cited.S{1..5}` | gate | higher | 1/(n+1) absolute (S1 1/26, S2 1/23, S3 1/21, S4 1/25, S5 1/22 — single-flip floor at committed n) | per-source: correctness-category rows ($n$ per source: S1 25, S2 22, S3 20, S4 24, S5 21 — verified): `ideal_answer` covers every citation-critical `must_contain` string (citation-resolution #28) |
 | `eval.guardrail.calibration.band8` | guardrail | higher | 0.03 absolute | **D29**: share of flawless/grounded rows scoring ≥8 under the judge — computed ONLY in nightly live (informational) |
 | `eval.guardrail.position_bias.agreement` | guardrail | higher | 0.03 absolute | **D28**: judge A/B vs B/A agreement on the same row — nightly live only |
 | `eval.info.snapshot_rowcount.{S1..S5}` | info | higher | 0.0 | golden rows evaluated per source, recorded for provenance, never verdict |
+| `eval.guardrail.latency.p95` | guardrail | lower | 0.20 relative | Mod-4 computed (task 04 SLO report): P95 total latency vs baseline*1.2; REVIEW on slip (D10, Q2 task 04) — registered now, value arrives with Mod 4 |
+| `eval.info.latency.ttft_p95` | info | lower | 0.20 relative | Mod-4 computed: TTFT P95 recorded for provenance, never verdict (D10) |
 
 All 16 gate rows are **computed offline by `run_suite` stubs** — deterministic, no API.
-Guardrail + info rows register their contract now; **their values are recorded only by the
-nightly live pipeline**, so the Mod-3 gate compares only the 16 gate rows. Per-source sample
+Guardrail + info rows register their contract now; guardrail band8/position_bias values are
+recorded by the nightly live pipeline only; the two latency rows arrive with Mod-4's SLO
+report (task 04); the Mod-3 gate compares only the 16 gate rows. Per-source sample
 sizes are part of the snapshot provenance (T-03-3), so every metric row carries its $n$ to CI.
+
+Per-source counts follow the split-on-`+` convention (D15): multi-source union rows count once
+per listed source — retriever totals 143 (S1 34, S2 27, S3 28, S4 28, S5 26) with 4
+multi-source double-counts; correctness totals 112 (S1 25, S2 22, S3 20, S4 24, S5 21) with 5.
+Verified against the three golden files.
+
+Reconciliation (verified 2026-09-14): per-source gate rows cover 254 unique rows (retriever 139 +
+misroute 8 + correctness 107); the remaining 59 unique rows of the closed 313 are
+query_processing_goldens.json's non-misroute categories (cite 38, conflict 5, abstain 5, degrade
+5, multi-source 5, basic 1) — part of the D19 closed set, verified by golden_rules L1 invariants,
+gated by no per-source row. 139+8+107+59 = 313.
 
 #### `run_suite.py` — offline deterministic evaluation (the gate's source of truth)
 
@@ -96,11 +149,51 @@ def run_suite(golden_dir: Path = eval/goldens) -> list[MetricValue]:
     """Deterministic offline eval — no network, no LLM, no env keys.
     Pure functions of the committed golden files + data/docs corpus.
     MUST be order-stable across runs (sorted golden ids), so the same
-    repository always produces the same candidate report (T-03-2)."""
+    repository always produces the same candidate report (T-03-2).
+    Byte identity is defined over schema_version + sorted metrics
+    (generated_utc excluded — T-03-2 canonical-bytes rule)."""
 ```
 
-Rules: reads `eval/goldens/*.json` + `data/docs/*`; never touches `.env`, `LLM_*`, `GROQ_*`,
+Rules: reads `eval/goldens/*.json`; `run_suite` reads `data/docs` in exactly two ways: (a)
+`corpus_sha256` generation (canonical manifest: sorted relative paths + file bytes); (b)
+`golden_rules` L1 checks through the imported t01_verify helper (via `tools/goldens/t01_verify.py`
+IMPORTED as a module — its functions live in run_suite's transitive closure, so T-03-11's scan
+covers them; subprocess invocation is PROHIBITED: it would escape the closure scan), which reads
+the corpus ONLY inside its documented L1 checks (T-01-3/5 groundedness/source/path). No
+free-corpus, retriever, or answer search exists anywhere in Mod 3;
+never touches `.env`, `LLM_*`, `GROQ_*`,
 `GEMINI_*`; never imports `config/judge.py` (gate must not accidentally pull live code — D5/D6).
+Reading ANY environment variable or .env in this tree is a violation (incl. `EMBED_MODEL`,
+`LANGSMITH_*` — E2 seam). Malformed golden JSON or an empty goldens dir raises
+`EvaluationInputError` → CLI exit 3 (D36). Row matching = all-or-nothing, case-sensitive
+substring predicate on normalized content; the normalization + case-sensitive-substring matching
+contract (NFC via `unicodedata.normalize`, line endings → `\n`, both sides trimmed, case
+preserved, substring on the normalized target) is OWNED by the shared t01_verify helper;
+`run_suite` reuses that helper for agreement/answer_gated matching and does not re-implement
+matching. NOTE: the committed `tools/goldens/t01_verify.py` currently performs RAW substring
+matching (line 53) — implementing the normalization contract inside that shared helper is an
+explicit NB-003 requirement (golden_rules and the per-source agreement gates must both run on
+normalized content; surfaced 2026-09-14). A golden's `must_contain` members and `ideal_context`
+are matched against
+the normalized, joined source-bundle text. Empty `must_contain` is a vacuous-pass trap: golden
+rows with empty `must_contain` raise `EvaluationInputError` → CLI exit 3 AT EVAL TIME (runtime
+guard only — golden schema unchanged, H8 note below); the closed set still has 313/313 non-empty
+(verified). A golden family with zero rows → typed error, never an
+empty/blissful 0.0 metric. Determinism pinning: floats serialize as standard JSON numbers
+(Python/uv only — no cross-language contract), never rounded; dict keys sorted; single trailing
+newline; the raw value repr is NOT rounded before serialization (no round-for-verdict) — report
+bytes stay identical run-to-run (T-03-2). Byte identity is defined over the DETERMINISTIC subset
+of the report — `schema_version` + metrics (sorted by `metric_id`); `generated_utc` is recording
+metadata EXCLUDED from byte comparison, so two runs on the same repo are byte-identical on the
+canonical subset.
+`run_suite` output is written by `save_report()` to a candidate JSON envelope
+({schema_version, generated_utc, metrics}) that compare's CLI deserializes into `list[MetricValue]`
+before calling `compare()` (T-03-9b).
+
+> **H8 note (t01_verify — now runtime-enforced):** `t01_verify` accepts empty `must_contain`
+> (empty verdict); `run_suite` now RAISES `EvaluationInputError` → exit 3 on any golden row with
+> empty `must_contain` at eval time (schema unchanged, claude #10). The closed set has 313/313
+> non-empty (verified) — the guard is belt-and-braces, not authoring diligence (D19 closed set).
 
 #### `snapshot.py` — baseline serialization
 
@@ -110,16 +203,28 @@ class Snapshot:
     id: str                  # e.g. "baseline-2026-09-11" — caller/learner chosen
     created_utc: str
     git_commit: str | None   # provenance; None if not a git repo (cheap, optional)
+    schema_version: str      # snapshot format version, incremented on report/schema shape change
+    goldens_sha256: str      # sha256 of the canonical manifest over eval/goldens/** (sorted relative paths + file bytes)
+    corpus_sha256: str       # sha256 of the canonical manifest over data/docs/** (sorted relative paths + file bytes)
     metrics: dict[str, MetricValue]   # keyed by metric_id, stable order
-    meta: dict               # free-form: golden counts, judge prompt id used (judge_system_generic_1.0.0), notes
+    meta: dict               # free-form: golden counts, notes. Mod 3 has no judge (the gate is offline-deterministic; the live judge runs nightly only, D5)
 
-def save_snapshot(snapshot: Snapshot, *, path: Path = eval/baselines/<id>.json) -> None: pass
+def save_snapshot(snapshot: Snapshot, *, path: Path | None = None) -> None: pass  # atomic: tmp file + rename; path derived from id when None (NO invalid default); write-time completeness: a Mod-3 baseline must contain all 16 registered gate rows (guardrail/info rows optional)
 def load_snapshot(path: Path) -> Snapshot: pass        # round-trip must preserve all fields
 ```
 
 The baseline lives at `eval/baselines/<id>.json`, **committed to git** (task 03:22 — baseline
 snapshot committed). One committed baseline per gate; dangling README cross-refs updated when a
 new baseline replaces it (house rule: internal links stay green).
+
+Canonical pointer: `eval/baselines/active.json` names the current baseline; schema
+`{schema_version, baseline_id, path}`. Path-safety rules: `path` is a filename only (basename),
+must end `.json`, must resolve inside `eval/baselines/`, no traversal (`..` / absolute /
+backslash rejected), the target file must exist, and `baseline_id` must equal the loaded
+snapshot's `id`. Resolution: when the active pointer is used, resolve it BEFORE comparing; any
+violation → `ConfigurationError` → CLI exit 4. The pointer is rewritten atomically in the same
+commit as the baseline file it points to (H12); the switch is owned by Mod-6's promote flow
+(H15, task 06).
 
 #### `compare.py` — verdict engine
 
@@ -130,19 +235,52 @@ class Verdict:               # PASS(0) / FAIL(1) / REVIEW(2)
     detail: dict[str, str]   # metric_id → why ("gate value 0.71 < baseline 0.75 - tol 0.03")
 
 def compare(baseline: Snapshot, candidate: list[MetricValue]) -> Verdict:
-    """Per metric (registry-driven):
-      gate got worse beyond tolerance        -> FAIL(1)
-      guardrail got worse beyond tolerance   -> REVIEW(2)
-      info regressed -> never affects verdict (recorded only)
-      missing gate metric in candidate -> FAIL (gate must exist)
+    """compare() returns ONLY a Verdict; error classes are RAISED as EvaluationInputError /
+    ConfigurationError and main() maps them to exit codes 3/4 at the CLI boundary.
+    11-step precedence (registry-driven; structural checks BEFORE any value comparison):
+      1. baseline/config structure RAISE: baseline file missing / unresolvable active.json /
+          zero baseline in a relative compare -> ConfigurationError (exit 4) (step 1 covers
+          baseline FILE/pointer errors only — missing baseline GATE rows are step 5)
+      2. candidate structure RAISE: malformed report / DUPLICATE candidate metric ids / empty or
+          malformed goldens -> EvaluationInputError (exit 3)
+      3. candidate gate sample_size != that metric's expected_sample_size -> FAIL(1) "coverage
+          regression" (shrink or growth breaks the closed-set contract; tolerance floors hold
+          only at the registered n)
+      4. missing gate in candidate, OR any candidate metric id the registry does not know -> FAIL(1)
+          — a suite that silently drops a gate, or a candidate naming an unregistered metric, is a
+          regression, never swallowed (when the SAME gate is missing from both baseline and
+          candidate, this step fires first -> FAIL(1))
+      5. missing gate in baseline (reached only when the candidate HAS the gate) ->
+          ConfigurationError exit 4 (rows named; regenerate via a registered change, never a
+          silent swap)
+      6. gate value worse beyond tolerance -> FAIL(1)
+      7. gate present + in tolerance   -> skip
+      8. guardrail present in BOTH + got worse beyond tolerance -> REVIEW(2)
+      9. missing guardrail in candidate -> SKIP with provenance note in `detail`, never a verdict —
+          REVIEW only when the guardrail row is present in BOTH. (H2: a nightly-only or Mod-4-not-yet
+          row must not keep the gate permanently yellow.)
+     10. info rows recorded only, never a verdict
+     11. precedence: FAIL(1) > REVIEW(2) > PASS(0) — a gate failure is NEVER downgraded by a
+          guardrail (T-03-8a)
+      INVARIANT: compare() never rounds metric values before verdicting (raw float math on the
+          exact Decimal/json floats; no rounding to N decimals that could flip a boundary — this
+          was a registry note in validate_registry, its home is here in compare)
       direction 'higher': worse = value < baseline - tolerance (absolute) or < baseline*(1-tol) (relative)
       direction 'lower':  worse = value > baseline + tolerance (absolute) or > baseline*(1+tol) (relative)
+      error classes RAISED (main() maps to exit codes; D36): malformed report / DUPLICATE candidate
+          metric ids / empty goldens -> EvaluationInputError (exit 3) — no dedupe-by-last-value,
+          duplicates are an input error; missing baseline / unresolvable active.json / zero baseline
+          in a relative compare / missing baseline gate row -> ConfigurationError (exit 4); argparse usage errors via a custom ArgumentParser.error() override -> EvaluationInputError (exit 3); argparse's native exit code 2 MUST NOT escape because 2 = REVIEW (T-03-9b); system errors (e.g. IO) -> 3/4 by class
     """
-def main(argv) -> int        # CLI: --baseline <path> --candidate <report.json> -> exit code (T-03-9)
+def main(argv) -> int        # CLI: --baseline <path> (explicit) vs --active (resolve eval/baselines/active.json) + --candidate <report.json> -> exit code 0..4 (T-03-9): verdicts: 0=PASS 1=FAIL (incl. unknown candidate id, missing candidate gate, coverage regression) 2=REVIEW; 3=EvaluationInputError (malformed report / duplicate ids / empty goldens); 4=ConfigurationError (baseline missing / pointer violations / missing baseline gate / zero-baseline relative); argparse usage errors -> exit 3 (custom ArgumentParser.error() override — native exit 2 is reserved for REVIEW and must not escape); exit 4 on any active-pointer violation
 ```
 
 Exit code IS the verdict (task 03:56: `echo $?` → 0/1/2). A missing gate metric in the candidate
 report counts as FAIL — a suite that silently drops a gate is worse than a red build.
+The CLI deserializes the candidate report envelope into `list[MetricValue]` BEFORE calling
+`compare()`; `compare()` itself takes the plain list (H4).
+Inclusive band, computed boundary: for tolerance 0.03 the FAIL bound is `baseline - 0.03` exactly;
+on this platform 1.00 - 0.03 == 0.97 exactly, so 0.97 → PASS and 0.96 → FAIL (verified, 2026-09-14).
 
 ### Data flow (gate)
 
@@ -154,7 +292,9 @@ data/docs/*.md      ─┴──► run_suite() ──► candidate report (list
                       snapshot.py  (on baseline creation: eval/baselines/<id>.json, committed)
                               │
                               ▼
-                      compare.py  ── candidate vs committed baseline ──► PASS(0)/FAIL(1)/REVIEW(2)
+                      compare.py  ── candidate vs committed baseline ──► PASS(0)/FAIL(1)/REVIEW(2) / 3,4=error (D36)
+                               │        baseline = --baseline <path> OR --active → eval/baselines/active.json
+                               │        ({schema_version, baseline_id, path}; T-03-5b pointer battery)
                               │
                               └── exit code = CI gate verdict (llm_eval_gate.yml)
 
@@ -183,39 +323,64 @@ Cases derive from task 03 exit criteria + step4 `s4` reference (data/docs/s4_qa_
 
 | ID | Case | Input / conditions | Expected | Exit-criterion proven |
 |---|---|---|---|---|
-| T-03-1 | Registry schema valid | inspect every registered row | `id` dotted-unique, `kind ∈ {gate,guardrail,info}`, `direction ∈ {higher,lower}`, `tolerance_unit` consistent with D10 policy; every gate row tolerance_unit="absolute" | registry contract |
-| T-03-2 | `run_suite` deterministic | run twice on same repo | byte-identical report (ordered by metric id + stable sample_size); no env/n/write/network side effects | "offline gate runs end-to-end" (exit 1) |
-| T-03-3 | Gate rows per source | inspect report for 16 gate rows | 16 present: `golden_rules` + `retriever.agreement.{1..5}` + `routing.misroute_negation.{1..5}` + `correctness.answer_cited.{1..5}`; every row carries `sample_size`; retriever/correctness per-source $n$ ≥12 (verified: S1 34/25 … S5 26/21); misroute $n$ 1–3 documented, not a gate fail | "≥3 metrics per source" (exit 5) |
+| T-03-1 | Registry schema valid | inspect every registered row; assert the compiled regex against the actual committed rows | `id` dotted-unique; a COMPILED regex `^eval\.(gate|guardrail|info)\.[a-z_]+(\.[a-z0-9_]+)*(\.S[1-5])?$` matches EVERY registered id incl. `golden_rules`, `snapshot_rowcount.S1`, `guardrail.latency.p95`, `info.latency.ttft_p95`; `kind ∈ {gate,guardrail,info}`, `direction ∈ {higher,lower}`, `value_domain ∈ {fraction, nonnegative}` per row; `tolerance_unit` consistent with D10 policy; every gate row tolerance_unit="absolute"; per-source gate rows carry expected_sample_size == committed n, tolerance == 1/(expected_sample_size + 1) | registry contract |
+| T-03-2 | `run_suite` deterministic | run twice on same repo (and snapshot bytes identical for run_suite). | canonical candidate-report bytes equal on the same input (schema_version + sorted metrics; generated_utc excluded); snapshot bytes compared with fixed fixture values for id/created_utc/git_commit, asserting the deterministic subset is identical; no env/n/write/network side effects | "offline gate execution end-to-end" (exit-criterion label — NOT the D36 exit-1 regression code) |
+| T-03-2a | malformed battery | empty goldens dir; one malformed JSON file; a family with zero rows | `EvaluationInputError` raised → CLI exit 3 (D36); never a 0.0 metric | (B3) |
+| T-03-2b | `golden_rules` file-level | computed per golden FILE (3 files), not per row | 3-file denominator present; values in {1.0, 0.667, 0.333, 0.0}; one broken L1 file drops that file's contribution | (B2/H9) |
+| T-03-2c | empty must_contain guard | golden row with empty must_contain introduced at eval time | EvaluationInputError → CLI exit 3 (schema unchanged, runtime guard) | (claude #10, H8-now-enforced) |
+| T-03-3 | Gate rows per source | inspect report for 16 gate rows | 16 present: `golden_rules` + `retriever.agreement.{1..5}` + `routing.misroute_negation.{1..5}` + `correctness.answer_cited.{1..5}`; every row carries `sample_size`; retriever/correctness per-source $n$ ≥12 (verified: S1 34/25 … S5 26/21); misroute $n$ 1–2 documented (S1 1, S2 2, S3 2, S4 2, S5 1 — verified), not a gate fail; `gate_metric_ids()` len == 16; per-source agreement/answer_cited tolerance == 1/(expected_sample_size + 1) at that row's registered expected_sample_size (single-flip floor, D39); registered expected_sample_size == committed per-source n | "≥3 metrics per source" (exit 5) |
+| T-03-3c | multi-source double regression | edit ONE multi-source golden row (e.g. retriever S1+S3 row) | BOTH eval.gate.retriever.agreement.S1 AND S3 regress → FAIL(1); the row's flip counts in every listed source (D15 split-on-+) | (claude #3) |
 | T-03-4 | Stub value = 1.0 on committed goldens | run gate eval on the committed goldens | every gate row `value == 1.0` (all committed goldens are grounded per T-01-3, misroute rows are true negatives per #24) | baseline is trivially PASS; gate reacts to *regressions* |
-| T-03-5 | Snapshot round-trip | `save_snapshot` → `load_snapshot` | all fields preserved (id, created_utc, metric dict equality) | baseline persisted |
+| T-03-5 | Snapshot round-trip | `save_snapshot` → `load_snapshot` | all fields preserved (incl. git_commit value or None, schema_version, goldens_sha256/corpus_sha256 manifest equality); determinism asserted via fixed fixtures for id/created_utc/git_commit (T-03-2 canonical-bytes rule) | baseline persisted |
+| T-03-5a | snapshot write-time completeness | run `save_snapshot` on a fresh report, then `load_snapshot` WITHOUT calling compare | all 16 gate rows present in the snapshot immediately after save; `schema_version` + `goldens_sha256`/`corpus_sha256` populated | baseline persisted + complete (H7) |
+| T-03-5b | canonical pointer — malformed-pointer battery | each of: missing `active.json`; missing target file; traversal attempt (`..`/absolute/backslash); wrong extension; `path` escaping `eval/baselines/`; `baseline_id` mismatch with the snapshot it names; malformed JSON in `active.json` | ALL exit 4 ConfigurationError (pointer violation); pointer rewritten atomically on baseline change (H12) | (H12/D36) |
 | T-03-6 | compare PASS | candidate == baseline | exit 0, `regressed == []` | "compare reproduces PASS" (exit 2) |
-| T-03-7 | compare FAIL | candidate gate value drops below tolerance (e.g. one per-source agreement 0.97 < 1.00 - 0.03 at/under bound) | exit 1, `regressed == ["eval.gate.retriever.agreement.S1"]` (or the edited metric id) | "compare reproduces FAIL deterministically" (exit 2) |
-| T-03-8 | compare REVIEW | candidate guardrail value out of tolerance on a guardrail row (construct registry + synthetic baseline, guardrail only) | exit 2 (returned BEFORE any gate check), `regressed` names the guardrail metric | REVIEW classification |
+| T-03-6a | boundary PASS | candidate value == exactly `baseline - tol` (e.g. 1.000 vs 0.97 with tol 0.03) | exit 0 — band is inclusive, computed bound (verified 1.00-0.03 == 0.97 on this platform); this is an illustration of inclusive computed-bound semantics — the portable contract is the comparison operator against the computed boundary, not decimal equality (platform observation, Python/uv only) | boundary semantics (H1/deltas) |
+| T-03-6b | one-flip floor boundary | retriever S1 n=34, tol 1/35, baseline 1.0 — candidate 33/34 (0.970588) vs bound 34/35 (0.97143) | 33/34 (0.970588) < bound n/(n+1) = 34/35 (0.97143) → FAIL(1); 34/34 → PASS; the committed denominator n determines the boundary — a one-row degradation (n−1)/n must sit strictly below it; boundary is the comparison operator against n/(n+1), decimal equality (1.00−0.03==0.97) is a platform observation, not the portable contract | (claude #1/#11, D39) |
+| T-03-7 | compare FAIL | candidate gate value 0.96 vs baseline 1.00, tol 1/35 (S1: 0.96 < 1 − 1/35) | exit 1, `regressed == ["eval.gate.retriever.agreement.S1"]` (or edited id); detail names the metric | "compare reproduces FAIL deterministically" (exit 2) |
+| T-03-8 | compare REVIEW | fixture: synthetic baseline + candidate report where ALL gate rows are present and equal, ONE guardrail row (present in both) out of tolerance | exit 2, `regressed` names the guardrail metric — guardrail regression never touches gate verdict when gates pass | REVIEW classification |
 | T-03-8a | gate beats guardrail priority | candidate: gate FAIL + guardrail REGRESSED | verdict FAIL(1) — a gate failure is NEVER downgraded by a guardrail (exit 1 wins) | priority rule |
 | T-03-8b | missing gate metric in candidate → FAIL | candidate report omits `eval.gate.correctness.answer_cited.S3` | exit 1 with detail naming the missing gate metric | silent-drop protection |
-| T-03-9 | CLI contract | `uv run python -m llmops.eval.compare --baseline eval/baselines/<id>.json --candidate <report>` | `echo $?` = 0/1/2 exactly as unit verdict; `--help` documents flags | task 03 Verify block |
-| T-03-9a | tolerance direction: relative | latency metric "lower" + relative 0.20 | value ≤ baseline*1.2 still PASS; value > baseline*1.2 → REVIEW (schema honest pre-Mod-4) | D10 tolerance math |
+| T-03-8c | missing guardrail in candidate → skip | candidate omits a guardrail row that exists in baseline | verdict driven only by gate rows; `detail` records "guardrail <id> missing in candidate — skipped, not verdict" (H2) | guardrail skip rule |
+| T-03-8d | incomplete baseline → 4 | baseline lacks rows the candidate has (or vice versa, gate missing in baseline) | exit 4 ConfigurationError with named rows (baseline must be regenerated — registered change, D19-analogous) | error taxonomy (D36) |
+| T-03-8e | zero baseline in relative compare → 4 | latency row baseline == 0.0 with relative tolerance | exit 4 ConfigurationError (relative compare undefined at 0) (D36) | error taxonomy (D36) |
+| T-03-8f | direction lower, absolute | latency-ish metric, direction lower, tol absolute | value > baseline + tol → REVIEW (guardrail) / FAIL (gate); value == baseline + tol → PASS (inclusive) | direction math (D10) |
+| T-03-8g | unregistered candidate metric id | candidate report contains eval.gate.retriever.agreement.X1 (not a registered id) | FAIL(1) with detail naming the unregistered id (round-6 decision reaffirmed: a gate-time regression signal, never swallowed) | (claude #6) |
+| T-03-8h | same gate missing from BOTH baseline and candidate | synthetic baseline AND candidate both omit eval.gate.correctness.answer_cited.S3 | FAIL(1) — candidate-missing (compare step 4) fires before baseline-missing (step 5) | (claude #7) |
+| T-03-8i | coverage shrink/growth | candidate (or baseline) gate-row sample_size != the metric's registered expected_sample_size (e.g. retriever S1 33 vs 34) | FAIL(1) coverage regression, detail names metric + the registered and actual n values | (claude #4, D39) |
+| T-03-9 | CLI contract | `uv run python -m llmops.eval.compare --baseline eval/baselines/<id>.json --candidate <report>` | `echo $?` = 0..4 exactly as unit verdict / error class; `--help` documents flags and error classes | task 03 Verify block |
+| T-03-9a | tolerance direction: relative | latency metric "lower" + relative 0.20; baseline latency 100ms | 120ms still PASS (120 ≤ 100×1.2); 121ms → REVIEW (nonzero baseline fixture) (H5) | D10 tolerance math |
+| T-03-9b | CLI error taxonomy | malformed report JSON → exit 3; missing baseline file → exit 4; argparse usage error → exit 3 | distinct diagnostics, never a verdict code; unknown candidate metric id → FAIL(1) (regression, not an infra error); argparse usage errors exit 3 via a custom ArgumentParser.error() override so argparse's native exit 2 never collides with REVIEW(2) | (D36) |
 | T-03-10 | registry unknown metric id | `get_metric("eval.gate.nope")` | `KeyError` | typed robustness |
-| T-03-11 | gate never imports live code | source-level assert: `llmops/eval/{metric_registry,run_suite,snapshot,compare}.py` do not import `config/judge.py` / `ChatOpenAI` / `langchain_*` | read file + assert absence of those module names | gate stays offline (D5) |
-| T-03-12 | `uv run pytest tests/test_gates.py -q` green; ruff + mypy clean | toolchain check | 0 failures; ruff exit 0; mypy success (public functions typed, step4 parity) | exit 4 |
-| T-03-13 | nightly workflow is informational-only contract | inspect `.github/workflows/live_eval_nightly.yml` | `schedule`-driven; contains explicit "informational, never a merge gate" comment; uses NO live-required-check semantics | "nightly exists, flagged never-a-gate" (exit 3) |
-| T-03-14 | baseline committed + Report reproduces in CI-clean run | fresh `uv sync` then `run_suite` then `compare` vs committed baseline | exit 0 on the committed repo (trivially; regression drama comes from edits) | exit 1 end-to-end |
+| T-03-11 | gate never imports live code — closure scan | walk the transitive import closure of `llmops/eval/{metric_registry,run_suite,snapshot,compare}.py` INCLUDING package `__init__.py` chains (llmops/__init__, llmops/eval/__init__); `t01_verify` is IMPORTED (not subprocess) so its closure is inside the scan | deny-set absent: `config.judge` / `judge_llm` / `ChatOpenAI` / `langchain_*` / `openai` / `httpx` / `requests` / `urllib` / `http.client` / `socket` | gate stays offline (D5, H14) |
+| T-03-11b | env spy | run `run_suite` in a subprocess with env stripped AND with a shim that rejects ANY `os.environ`/`os.getenv`/`.env` read in the run_suite tree | no read occurs (covers EMBED_MODEL, LANGSMITH_*); exit 0 report identical to control run | (H14 E2) |
+| T-03-11c | read-only + no-socket backstop | run `run_suite` under a read-only tmpdir working copy with socket blocking | completes; byte-identical report; no write/network attempt | (H14 E3) |
+| T-03-11d | deny-set coverage (subset) | required deny-set ⊆ actual scanned deny-set: `{config.judge, judge_llm, ChatOpenAI, langchain_*, openai, httpx, requests, urllib, http.client, socket}` present in the enforcement list; every shipped assert passes the closure scan with each name ABSENT | assert passes on committed code; extending the deny-set is a registered-change-friendly action, not a test break | (H14, distinct from the T-03-11 traversal scan) |
+| T-03-12 | `uv run pytest tests/test_gates.py -q` green; ruff + mypy clean | toolchain check | 0 failures; ruff exit 0; mypy success (public functions typed, step4 parity) | task-03 exit criterion 4 (toolchain failure — NOT the D36 exit code 4) |
+| T-03-13 | nightly workflow is informational-only contract — provable from workflow SOURCE only | inspect `.github/workflows/live_eval_nightly.yml` | `schedule` + `workflow_dispatch` triggers, NO `pull_request` trigger; step-level `continue-on-error: true` on the LIVE step only (not the whole job); contains explicit "informational, never a merge gate" comment | "nightly exists, flagged never-a-gate" (exit 3) — branch-protection exclusion is OPERATOR config, not provable from source |
+| T-03-13b | CI outcome mapping + always-run gate | inspect `.github/workflows/llm_eval_gate.yml` contract section | job ALWAYS runs on `pull_request` + `workflow_dispatch` (NO trigger path filter); INTERNAL globset detection (`eval/**` (incl. `eval/baselines/**`), `data/docs/**`, `src/llmops/eval/**`, `tools/goldens/**`, `uv.lock`, `.github/workflows/llm_eval_gate.yml`, `.github/workflows/live_eval_nightly.yml`, `pyproject.toml`) no-ops with an annotation when unchanged; exit 2 → job green + ⚠️ annotation (REVIEW non-blocking); exit 3/4 → red with distinct "gate infra / re-baseline" diagnostics; exit 1 → red regression; concurrency block `group: llm-eval-gate-${{ github.event.pull_request.number || github.ref }}; cancel-in-progress: true` (each PR its own group; reruns on same PR/ref cancel stale); `workflow_dispatch` always runs the full suite (globset no-op applies to `pull_request` only) | (H10/H11, D36) |
+| T-03-13c | baseline-change policy | repo edit touching only `eval/baselines/<id>.json` + `active.json` | a deliberate, reviewed baseline/pointer update with valid matching snapshot metadata allows the committed repo to PASS; a broken pointer or incomplete baseline exits 4 (ConfigurationError); baseline swap documented as a registered change (D19-analogous), never silent | (H12) |
+| T-03-13d | empty env + always-run/no-filter + no-op annotation | `env:` block empty (no vault refs); job has NO trigger path filter (always runs); unchanged-path run emits a no-op annotation instead of failing | contract text asserts all three | (F1/H14) |
+| T-03-14 | baseline committed + Report reproduces in CI-clean run | fresh `uv sync` then `run_suite` then `compare` vs committed baseline | exit 0 on the committed repo (trivially; regression drama comes from edits) | task-03 exit criterion 1 (offline gate end-to-end — label, not the D36 exit-1 code) |
+
+**39 rows** (T-03-1..14 + lettered sub-rows) — re-derived at amendment (2026-09-14, Round-7 triage); count unchanged in Round-8 (corrections folded in) and Round-9 (contract-precision fixes only, D41).
 
 ## Role reviews (read-only lens, before you build)
 
 | Role | Checked | Verdict |
 |---|---|---|
-| **security** | Gate workflows carry **no live API keys** (task 03:26 contract); `run_suite` stub path never reads `.env`/`LLM_*`/`GROQ_*`; nightly live path keeps judge env OUT of the gate file; T-03-11 enforces the seam at source level | ✅ pending (review before build) |
-| **ops** | Tolerances sized above measurement noise (D10: ±0.03 judge abs, ±20% latency rel); `compare` exit code = the verdict (deterministic, CI-usable); latency metric rows registered now, computed Mod 4 (D10); nightly never blocks | ✅ pending (review before build) |
-| **tester** | 14 cases: registry schema (T-03-1), determinism (T-03-2), gate rows + per-source sample sizes (T-03-3/4), snapshot round-trip (T-03-5), PASS/FAIL/REVIEW + priority + missing-metric (T-03-6/7/8/8a/8b), CLI + relative tolerance (T-03-9/9a), robustness (T-03-10), offline seam (T-03-11), toolchain (T-03-12), workflow contract (T-03-13), end-to-end (T-03-14) — all offline-except-nightly; goldens cross-checked (313 rows, 3 files, per-source counts verified) | ✅ pending (review before build) |
-| **planner** | Execution order follows SPRINT_PLAN only (Mod 3 begins after Mod 2); D28/D29 plan rows fold into the 3 guardrail/info rows — no new module, no dependency reorder (D28: "no new module"; D29: fold into Mod 3:21) | ✅ pending (review before build) |
+| **security** | Gate workflows carry **no live API keys** (task 03:26 contract); `run_suite` stub path never reads `.env`/`LLM_*`/`GROQ_*`; nightly live path keeps judge env OUT of the gate file; T-03-11 enforces the seam at source level; E1 transitive-closure scan incl. `__init__` chains + extended deny-set (urllib/http.client/socket/httpx/requests/openai/langchain_*); E2 any-env-access rejection (EMBED_MODEL/LANGSMITH_*); F1 empty `env:` block + always-run/no-filter guarantee | ✅ (reviewed 2026-09-14: 3 external advisors + 5 roles, D36/D37; re-verify at NB-003 build per D21) |
+| **ops** | Tolerances sized above measurement noise (D10: ±0.03 judge abs, ±20% latency rel); `compare` exit code = the verdict (deterministic, CI-usable); latency metric rows registered now, computed Mod 4 (D10); nightly never blocks; D36 outcome map (exit 2 → green+annotation; 3/4 → red distinct); path-filter globset; active.json atomic refresh; missing-guardrail skip rule; C4 gate-only verdict scope | ✅ (reviewed 2026-09-14: 3 external advisors + 5 roles, D36/D37; re-verify at NB-003 build per D21) |
+| **tester** | 39 cases: registry schema (T-03-1), determinism (T-03-2), malformed battery (T-03-2a), golden_rules file-level (T-03-2b), empty-must_contain guard (T-03-2c), gate rows + per-source sample sizes (T-03-3/4), multi-source double regression (T-03-3c), snapshot round-trip + completeness + pointer (T-03-5/5a/5b), PASS/REVIEW/FAIL + boundary + single-flip boundary + priority + missing-metric + unregistered id + both-missing precedence + coverage shrink/growth + guardrail-skip + incomplete/zero baseline + direction math (T-03-6/6a/6b/7/8/8a/8b/8c/8d/8e/8f/8g/8h/8i), CLI + relative tolerance + CLI error taxonomy (T-03-9/9a/9b), robustness (T-03-10), offline seam closure scan + env spy + read-only/socket + deny-list (T-03-11/11b/11c/11d), toolchain (T-03-12), workflow contract + CI outcome mapping + baseline-change policy + empty-env (T-03-13/13b/13c/13d), end-to-end (T-03-14); boundary verified (0.97 PASS / 0.96 FAIL; 1.00-0.03 == 0.97 on platform); goldens cross-checked (313 rows, 3 files, per-source counts verified) | ✅ (reviewed 2026-09-14: 3 external advisors + 5 roles, D36/D37; re-verify at NB-003 build per D21) |
+| **planner** | Execution order follows SPRINT_PLAN only (Mod 3 begins after Mod 2); D28/D29 plan rows fold into the 3 guardrail/info rows — no new module, no dependency reorder (D28: "no new module"; D29: fold into Mod 3:21); no module reorder; latency rows owned by task 04 (H15); active.json switch owned by task 06 (H15); D36 registered | ✅ (reviewed 2026-09-14: 3 external advisors + 5 roles, D36/D37; re-verify at NB-003 build per D21) |
+| **reviewer** | A5 id-pattern broadened to match actual ids incl. golden_rules; B4 CLI→compare boundary; D36 to-be-created noted (now D36) | ✅ (reviewed 2026-09-14: 3 external advisors + 5 roles, D36/D37; re-verify at NB-003 build per D21) |
 | **ux** | n/a — internal gate machinery, no user surface | ⏭️ |
 
 ## Verify (after notebook promotion + tests, mirrors task 03)
 
 ```
 uv run python -m llmops.eval.compare --baseline eval/baselines/<id>.json --candidate <report>
-echo $?   # 0=pass, 1=fail, 2=review — deterministic in CI
+echo $?   # 0=pass, 1=fail, 2=review, 3=eval/input error, 4=config/baseline error (D36) — deterministic in CI
 uv run pytest tests/test_gates.py -q
 uv run ruff check src/ tests/ jupyter_notebook/NB-003_regression_gates.ipynb
 uv run mypy src/

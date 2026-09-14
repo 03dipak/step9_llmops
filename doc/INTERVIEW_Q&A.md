@@ -53,6 +53,10 @@ latency) → verdict PASS/FAIL/REVIEW with an exit code; (3) SLO numbers (`SLO_P
 `SLO_TTFT_P95_MS=1200`) from Task-14 metrics-to-compute. Judge pinned so drift is signal,
 not noise.
 
+**Q. What happens when the gate itself breaks?**
+**A:** The gate distinguishes a *regression* from a *broken measurement* (D36): exit code 3 = evaluation/input error (malformed report, unknown metric), exit 4 = configuration/baseline error (missing baseline, unresolvable `active.json` pointer). A broken gate fails loudly with diagnostics — it never silently passes and never masquerades as a regression. Guardrail REVIEWs (exit 2) are non-blocking by policy: CI maps them to a green job with a warning annotation, so soft targets alert without blocking merges.
+**Check:** they can separate "the answer got worse" (exit 1) from "the gate can't measure" (exit 3/4) and know REVIEW is visible-but-green.
+
 **Q. Why is the CI gate offline-only? You have real APIs available.**
 **A:** A gate must be deterministic. Live LLM output has noise (±0.03 judge) and rate limits —
 a flaky gate trains people to ignore it. So: L1 golden rules + L2 offline (deterministic

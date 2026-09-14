@@ -12,7 +12,7 @@
 ## Deliverables (your code; agents write docs + review)
 
 1. **Promote/rollback flow** — a change follows: branch → offline gate (Task 03) → if PASS,
-   promote baseline snapshot (`eval/baselines/<new>.json` becomes canonical) → record in the
+   promote baseline snapshot (`eval/baselines/<new>.json` becomes canonical — the canonical switch rewrites `eval/baselines/active.json` atomically in the same commit as the new baseline (registered Mod 3, H15/D36)) → record in the
    prompt registry (Task 02 approve step). **Rollback exercised once**: revert a promoted
    change and show the gate re-verdicts the old baseline.
 2. **Snapshot provenance** — every snapshot stamps source commit + goldens version + judge id
@@ -46,7 +46,7 @@
 
 ```
 uv run pytest tests/test_lifecycle.py -q
-# manual: change a prompt → run offline gate → FAIL recorded → rollback → gate green again
+# manual: change a prompt → run offline gate → FAIL recorded → rollback → gate green again; baseline switch rewrites active.json in the same commit
 ```
 
 ## Interview-Q&A (Mod 6)

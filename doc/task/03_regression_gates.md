@@ -17,7 +17,8 @@
    start at **±0.03 (judge metrics)** and **±20% (latency)** above measurement noise (step4
    §7). Gate = hard fail; guardrail = soft REVIEW; info = tracked.
 2. **`src/llmops/eval/compare.py`** — diff candidate vs committed **baseline snapshot** →
-   PASS(0) / FAIL(1) / REVIEW(2); exit code is the verdict.
+   PASS(0) / FAIL(1) / REVIEW(2); exit code is the verdict. Error classes exit distinctly:
+   3=eval/input error, 4=config/baseline error (D36).
 3. **`src/llmops/eval/snapshot.py`** — serialize all metric scores + provenance into
    `eval/baselines/<id>.json` (step4's `run_suite`→snapshot pattern).
 4. **`.github/workflows/llm_eval_gate.yml`** (you write it; contract here) — on PR:
@@ -48,12 +49,13 @@
 - [ ] A live nightly workflow exists (contract), flagged never-a-gate
 - [ ] `uv run pytest tests/test_gates.py -q` green; ruff + mypy clean
 - [ ] Goldens from Task 01 actually feed the gate (≥3 metrics surfaced per source)
+- [ ] Gate error taxonomy asserted (D36): eval/input (3) and config/baseline (4) errors exit distinctly from verdicts; exit 2 = REVIEW non-blocking in CI
 
 ## Verify
 
 ```
 uv run python -m llmops.eval.compare --baseline eval/baselines/<id>.json --candidate <report>
-echo $?        # 0=pass, 1=fail, 2=review — deterministic in CI
+echo $?        # 0=pass, 1=fail, 2=review, 3=eval/input error, 4=config/baseline error (D36) — deterministic in CI
 ```
 
 ## Interview-Q&A (Mod 3)
