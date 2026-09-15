@@ -1,0 +1,141 @@
+{
+  "corpus_sha256": "0ed886f88b3b7f806d6dc871d799444a87669ae8a968691cc4ddc5d0ee569e6e",
+  "created_utc": "2026-09-15T10:49:02.452664+00:00",
+  "git_commit": "091a13bc9666fafdb0c3bc4bd736a45e8c85fc0f",
+  "goldens_sha256": "0a93278588bcc0245d0b1135b183187311f173d118072f3a38948e473a87e14a",
+  "id": "baseline-2026-09-15",
+  "meta": {
+    "golden_counts": {
+      "correctness": {
+        "S1": 25,
+        "S2": 22,
+        "S3": 20,
+        "S4": 24,
+        "S5": 21
+      },
+      "misroute": {
+        "S1": 1,
+        "S2": 2,
+        "S3": 2,
+        "S4": 2,
+        "S5": 1
+      },
+      "retriever": {
+        "S1": 34,
+        "S2": 27,
+        "S3": 28,
+        "S4": 28,
+        "S5": 26
+      }
+    },
+    "notes": "Mod 3 initial baseline"
+  },
+  "metrics": {
+    "eval.gate.correctness.answer_cited.S1": {
+      "computation": "stub",
+      "sample_size": 25,
+      "value": 1.0
+    },
+    "eval.gate.correctness.answer_cited.S2": {
+      "computation": "stub",
+      "sample_size": 22,
+      "value": 1.0
+    },
+    "eval.gate.correctness.answer_cited.S3": {
+      "computation": "stub",
+      "sample_size": 20,
+      "value": 1.0
+    },
+    "eval.gate.correctness.answer_cited.S4": {
+      "computation": "stub",
+      "sample_size": 24,
+      "value": 1.0
+    },
+    "eval.gate.correctness.answer_cited.S5": {
+      "computation": "stub",
+      "sample_size": 21,
+      "value": 1.0
+    },
+    "eval.gate.golden_rules": {
+      "computation": "stub",
+      "sample_size": 3,
+      "value": 1.0
+    },
+    "eval.gate.retriever.agreement.S1": {
+      "computation": "stub",
+      "sample_size": 34,
+      "value": 1.0
+    },
+    "eval.gate.retriever.agreement.S2": {
+      "computation": "stub",
+      "sample_size": 27,
+      "value": 1.0
+    },
+    "eval.gate.retriever.agreement.S3": {
+      "computation": "stub",
+      "sample_size": 28,
+      "value": 1.0
+    },
+    "eval.gate.retriever.agreement.S4": {
+      "computation": "stub",
+      "sample_size": 28,
+      "value": 1.0
+    },
+    "eval.gate.retriever.agreement.S5": {
+      "computation": "stub",
+      "sample_size": 26,
+      "value": 1.0
+    },
+    "eval.gate.routing.misroute_negation.S1": {
+      "computation": "stub",
+      "sample_size": 1,
+      "value": 1.0
+    },
+    "eval.gate.routing.misroute_negation.S2": {
+      "computation": "stub",
+      "sample_size": 2,
+      "value": 1.0
+    },
+    "eval.gate.routing.misroute_negation.S3": {
+      "computation": "stub",
+      "sample_size": 2,
+      "value": 1.0
+    },
+    "eval.gate.routing.misroute_negation.S4": {
+      "computation": "stub",
+      "sample_size": 2,
+      "value": 1.0
+    },
+    "eval.gate.routing.misroute_negation.S5": {
+      "computation": "stub",
+      "sample_size": 1,
+      "value": 1.0
+    },
+    "eval.info.snapshot_rowcount.S1": {
+      "computation": "stub",
+      "sample_size": 80,
+      "value": 80.0
+    },
+    "eval.info.snapshot_rowcount.S2": {
+      "computation": "stub",
+      "sample_size": 63,
+      "value": 63.0
+    },
+    "eval.info.snapshot_rowcount.S3": {
+      "computation": "stub",
+      "sample_size": 63,
+      "value": 63.0
+    },
+    "eval.info.snapshot_rowcount.S4": {
+      "computation": "stub",
+      "sample_size": 66,
+      "value": 66.0
+    },
+    "eval.info.snapshot_rowcount.S5": {
+      "computation": "stub",
+      "sample_size": 59,
+      "value": 59.0
+    }
+  },
+  "schema_version": "1.0"
+}
